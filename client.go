@@ -6,13 +6,15 @@ import "github.com/mattermost/mattermost-server/v5/plugin"
 type Client struct {
 	api plugin.API
 
-	User UserService
+	User  UserService
+	Emoji *EmojiService
 }
 
 // NewClient creates a new instance of Client.
 func NewClient(api plugin.API) *Client {
 	return &Client{
-		api:  api,
-		User: UserService{api},
+		api:   api,
+		User:  UserService{api},
+		Emoji: &EmojiService{api},
 	}
 }
