@@ -8,6 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v0.10.0 // indirect
 	github.com/mattermost/mattermost-server v5.11.1+incompatible // indirect
 	github.com/mattermost/mattermost-server/v5 v5.99.99
+	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
 	go.uber.org/zap v1.13.0 // indirect
