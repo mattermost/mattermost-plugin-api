@@ -7,6 +7,7 @@ type Client struct {
 	api plugin.API
 
 	User     UserService
+	Post     PostService
 	Reaction ReactionService
 }
 
@@ -15,6 +16,7 @@ func NewClient(api plugin.API) *Client {
 	return &Client{
 		api:      api,
 		User:     UserService{api},
+		Post:     PostService{api},
 		Reaction: ReactionService{api},
 	}
 }
