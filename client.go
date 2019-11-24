@@ -9,6 +9,9 @@ type Client struct {
 	User     UserService
 	Post     PostService
 	Reaction ReactionService
+	Emoji    EmojiService
+	File     FileService
+	KV       KVService
 }
 
 // NewClient creates a new instance of Client.
@@ -18,5 +21,8 @@ func NewClient(api plugin.API) *Client {
 		User:     UserService{api},
 		Post:     PostService{api},
 		Reaction: ReactionService{api},
+		Emoji:    EmojiService{api},
+		File:     FileService{api},
+		KV:       KVService{api},
 	}
 }
