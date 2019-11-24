@@ -12,6 +12,7 @@ type Client struct {
 	Emoji    EmojiService
 	File     FileService
 	KV       KVService
+	Bot      BotService
 }
 
 // NewClient creates a new instance of Client.
@@ -24,5 +25,6 @@ func NewClient(api plugin.API) *Client {
 		Emoji:    EmojiService{api},
 		File:     FileService{api},
 		KV:       KVService{api},
+		Bot:      BotService{api},
 	}
 }
