@@ -2,12 +2,9 @@ package pluginapi_test
 
 import (
 	"pluginapi"
-
-	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
 type Plugin struct {
-	plugin.MattermostPlugin
 	client *pluginapi.Client
 }
 
@@ -17,4 +14,8 @@ func (p *Plugin) OnActivate() error {
 }
 
 func Example() {
+	p := &Plugin{}
+	client := pluginapi.NewClient(nil)
+	client.RegisterOnActivate(p.OnActivate)
+	client.Start()
 }

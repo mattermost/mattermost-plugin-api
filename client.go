@@ -4,7 +4,8 @@ import "github.com/mattermost/mattermost-server/v5/plugin"
 
 // Client is a streamlined wrapper over the mattermost plugin API.
 type Client struct {
-	api plugin.API
+	api   plugin.API
+	hooks hooks
 
 	User     UserService
 	Post     PostService
@@ -15,10 +16,10 @@ type Client struct {
 	Bot      BotService
 }
 
-// NewClient creates a new instance of Client.
-func NewClient(api plugin.API) *Client {
+// NewClient creates a new instance of Client, blocking until the hosting server initializes the
+// plugin API.
+func NewClient() *Client {
 	return &Client{
-		api:      api,
 		User:     UserService{api},
 		Post:     PostService{api},
 		Reaction: ReactionService{api},
