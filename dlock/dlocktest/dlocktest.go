@@ -1,5 +1,7 @@
-// Package dlocktest is a testing helper for you to unit test your packages that using dlock.
-// simply fake dlock's store(network layer) by creating an InMemoryStore with NewStore().
+// Package dlocktest is a testing helper for you to unit test your own packages that are using dlock.
+// with the help of this pkg, dlock.Store can be faked by an in-memory implementation created by New()
+// where it prevents actual network calls to Mattermost server but behaves exactly the same.
+// TODO(ilgooz): add unit tests.
 package dlocktest
 
 import (
@@ -11,8 +13,8 @@ import (
 	"github.com/mattermost/mattermost-server/v5/model"
 )
 
-// InMemoryStore is an in-memory KV store.
-type InMemoryStore struct {
+// API implements dlock.API.
+type API struct {
 	m    sync.Mutex
 	data map[string]Value
 }
@@ -23,16 +25,16 @@ type Value struct {
 	createdAt time.Time
 }
 
-// NewStore creates a new in-memory KV Store.
-// TODO(ilgooz): improve InMemoryStore to simulate error cases.
-func NewStore() *InMemoryStore {
-	return &InMemoryStore{
+// New creates an implementation of dlock.API with an in-memory, fake pluginapi KV Store
+// and a pluginapi logger.
+func New() *API {
+	return &API{
 		data: make(map[string]Value),
 	}
 }
 
-// Set implements a fake in memory Store. Store is defined at the dlock pkg.
-func (s *InMemoryStore) Set(key string, value interface{}, options ...pluginapi.KVSetOption) (bool, error) {
+// Set implements a fake in-memory dlock.API.Set().
+func (s *API) Set(key string, value interface{}, options ...pluginapi.KVSetOption) (bool, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -63,3 +65,7 @@ func (s *InMemoryStore) Set(key string, value interface{}, options ...pluginapi.
 
 	return true, nil
 }
+
+// Error fakes dlock.API.Error().
+// TODO(ilgooz): improve API to simulate error cases.
+func (a *API) Error(message string, keyValuePairs ...interface{}) {}

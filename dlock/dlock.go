@@ -31,15 +31,16 @@ const (
 	lockTryInterval = time.Second
 )
 
-// Store is a data store to keep locks' state.
-type Store interface {
+// API is a portion of pluginapi to keep locks' state and log errors.
+type API interface {
 	Set(key string, value interface{}, options ...pluginapi.KVSetOption) (bool, error)
+	Error(message string, keyValuePairs ...interface{})
 }
 
 // DLock is a distributed lock.
 type DLock struct {
-	// store used to store lock's state to do synchronization.
-	store Store
+	// api used to keep locks' state and log errors.
+	api API
 
 	// key to lock for.
 	key string
@@ -57,11 +58,8 @@ type DLock struct {
 // as an equivalent of,
 //   `var m sync.Mutex`
 // and use it in the same way.
-func New(key string, store Store) *DLock {
-	return &DLock{
-		key:   buildKey(key),
-		store: store,
-	}
+func New(key string, api API) *DLock {
+	return &DLock{key: buildKey(key), api: api}
 }
 
 // Lock obtains a new lock.
@@ -99,7 +97,7 @@ func (d *DLock) lock() (isLockObtained bool, err error) {
 		pluginapi.SetAtomic(nil),
 		pluginapi.SetExpiry(lockTTL),
 	}
-	isLockObtained, err = d.store.Set(d.key, true, setOptions...)
+	isLockObtained, err = d.api.Set(d.key, true, setOptions...)
 	if err != nil {
 		return false, errors.Wrap(err, "cannot obtain a lock, Store.Set() returned with an error")
 	}
@@ -121,7 +119,10 @@ func (d *DLock) startRefreshLoop() {
 		for {
 			select {
 			case <-t.C:
-				d.store.Set(d.key, true, pluginapi.SetExpiry(lockTTL))
+				_, err := d.api.Set(d.key, true, pluginapi.SetExpiry(lockTTL))
+				if err != nil {
+					d.api.Error(errors.Wrap(err, "cannot refresh a lock, Store.Set() returned with an error").Error())
+				}
 			case <-ctx.Done():
 				return
 			}
@@ -136,7 +137,7 @@ func (d *DLock) startRefreshLoop() {
 func (d *DLock) Unlock() error {
 	d.refreshCancel()
 	d.refreshWait.Wait()
-	_, err := d.store.Set(d.key, nil)
+	_, err := d.api.Set(d.key, nil)
 	return err
 }
 

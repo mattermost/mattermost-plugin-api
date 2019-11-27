@@ -14,7 +14,7 @@ import (
 // TODO(ilgooz): can move tests from sync/mutex_test.go.
 
 func TestLock(t *testing.T) {
-	dl := New("a", dlocktest.NewStore())
+	dl := New("a", dlocktest.New())
 	var wg sync.WaitGroup
 	wg.Add(3)
 	for i := 0; i < 3; i++ {
@@ -31,7 +31,7 @@ func TestLock(t *testing.T) {
 }
 
 func TestTryLock(t *testing.T) {
-	dl := New("a", dlocktest.NewStore())
+	dl := New("a", dlocktest.New())
 	dl.Lock(context.Background())
 	isLockObtained, err := dl.TryLock()
 	require.NoError(t, err)
@@ -39,8 +39,8 @@ func TestTryLock(t *testing.T) {
 }
 
 func TestLockDifferentKeys(t *testing.T) {
-	dla := New("a", dlocktest.NewStore())
-	dlb := New("b", dlocktest.NewStore())
+	dla := New("a", dlocktest.New())
+	dlb := New("b", dlocktest.New())
 	dla.Lock(context.Background())
 	dlb.Lock(context.Background())
 	dla.Unlock()
