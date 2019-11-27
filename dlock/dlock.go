@@ -121,7 +121,8 @@ func (d *DLock) startRefreshLoop() {
 			case <-t.C:
 				_, err := d.api.Set(d.key, true, pluginapi.SetExpiry(lockTTL))
 				if err != nil {
-					d.api.Error(errors.Wrap(err, "cannot refresh a lock, Store.Set() returned with an error").Error())
+					err = errors.Wrap(err, "cannot refresh a lock, Store.Set() returned with an error")
+					d.api.Error(err.Error())
 				}
 			case <-ctx.Done():
 				return
@@ -137,8 +138,10 @@ func (d *DLock) startRefreshLoop() {
 func (d *DLock) Unlock() error {
 	d.refreshCancel()
 	d.refreshWait.Wait()
-	_, err := d.api.Set(d.key, nil)
-	return err
+	if _, err := d.api.Set(d.key, nil); err != nil {
+		return errors.Wrap(err, "cannot release a lock, Store.Set() returned with an error")
+	}
+	return nil
 }
 
 // buildKey builds a lock key for KV store.
