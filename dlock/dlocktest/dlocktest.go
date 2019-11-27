@@ -1,5 +1,5 @@
 // Package dlocktest is a testing helper for you to unit test your packages that using dlock.
-// simply fake dlock's store(network layer) by using InMemoryStore.
+// simply fake dlock's store(network layer) by creating an InMemoryStore with NewStore().
 package dlocktest
 
 import (
@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	pluginapi "github.com/lieut-data/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-server/v5/model"
 )
 
@@ -23,29 +24,42 @@ type Value struct {
 }
 
 // NewStore creates a new in-memory KV Store.
+// TODO(ilgooz): improve InMemoryStore to simulate error cases.
 func NewStore() *InMemoryStore {
 	return &InMemoryStore{
 		data: make(map[string]Value),
 	}
 }
 
-func (s *InMemoryStore) KVSetWithOptions(key string, newValue interface{}, options model.PluginKVSetOptions) (bool, *model.AppError) {
+// Set implements a fake in memory Store. Store is defined at the dlock pkg.
+func (s *InMemoryStore) Set(key string, value interface{}, options ...pluginapi.KVSetOption) (bool, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
+
+	opts := model.PluginKVSetOptions{}
+	for _, o := range options {
+		o(&opts)
+	}
+
+	if value == nil {
+		delete(s.data, key)
+		return true, nil
+	}
+
 	v, ok := s.data[key]
 	if ok && time.Since(v.createdAt) > v.ttl {
 		v.data = nil
 	}
-	if options.Atomic && !reflect.DeepEqual(v.data, options.OldValue) {
+
+	if opts.Atomic && !reflect.DeepEqual(v.data, opts.OldValue) {
 		return false, nil
 	}
-	s.data[key] = Value{newValue, time.Duration(options.ExpireInSeconds) * time.Second, time.Now()}
-	return true, nil
-}
 
-func (s *InMemoryStore) KVDelete(key string) *model.AppError {
-	s.m.Lock()
-	defer s.m.Unlock()
-	delete(s.data, key)
-	return nil
+	s.data[key] = Value{
+		data:      value,
+		ttl:       time.Duration(opts.ExpireInSeconds) * time.Second,
+		createdAt: time.Now(),
+	}
+
+	return true, nil
 }

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mattermost/mattermost-server/v5/model"
+	pluginapi "github.com/lieut-data/mattermost-plugin-api"
 	"github.com/pkg/errors"
 )
 
@@ -31,15 +31,9 @@ const (
 	lockTryInterval = time.Second
 )
 
-var (
-	// ErrCouldntObtainImmediately returned when a lock couldn't be obtained immediately after
-	// calling Lock().
-	ErrCouldntObtainImmediately = errors.New("could not obtain immediately")
-)
-
 // Store is a data store to keep locks' state.
 type Store interface {
-	KVSetWithOptions(key string, newValue interface{}, options model.PluginKVSetOptions) (bool, *model.AppError)
+	Set(key string, value interface{}, options ...pluginapi.KVSetOption) (bool, error)
 }
 
 // DLock is a distributed lock.
@@ -101,15 +95,13 @@ func (d *DLock) TryLock() (isLockObtained bool, err error) {
 // lock obtains a new lock and starts refreshing the lock until a call to
 // Unlock() to not hit lock's TTL.
 func (d *DLock) lock() (isLockObtained bool, err error) {
-	kopts := model.PluginKVSetOptions{
-		EncodeJSON:      true,
-		Atomic:          true,
-		OldValue:        nil,
-		ExpireInSeconds: int64(lockTTL.Seconds()),
+	setOptions := []pluginapi.KVSetOption{
+		pluginapi.SetAtomic(nil),
+		pluginapi.SetExpiry(lockTTL),
 	}
-	isLockObtained, aerr := d.store.KVSetWithOptions(d.key, true, kopts)
-	if aerr != nil {
-		return false, errors.Wrap(aerr, "KVSetWithOptions() error, cannot lock")
+	isLockObtained, err = d.store.Set(d.key, true, setOptions...)
+	if err != nil {
+		return false, errors.Wrap(err, "cannot obtain a lock, Store.Set() returned with an error")
 	}
 	if isLockObtained {
 		d.startRefreshLoop()
@@ -126,14 +118,10 @@ func (d *DLock) startRefreshLoop() {
 	go func() {
 		defer wg.Done()
 		t := time.NewTicker(lockRefreshInterval)
-		kopts := model.PluginKVSetOptions{
-			EncodeJSON:      true,
-			ExpireInSeconds: int64(lockTTL.Seconds()),
-		}
 		for {
 			select {
 			case <-t.C:
-				d.store.KVSetWithOptions(d.key, true, kopts)
+				d.store.Set(d.key, true, pluginapi.SetExpiry(lockTTL))
 			case <-ctx.Done():
 				return
 			}
@@ -148,20 +136,11 @@ func (d *DLock) startRefreshLoop() {
 func (d *DLock) Unlock() error {
 	d.refreshCancel()
 	d.refreshWait.Wait()
-	aerr := d.store.KVDelete(d.key)
-	return normalizeAppErr(aerr)
+	_, err := d.store.Set(d.key, nil)
+	return err
 }
 
 // buildKey builds a lock key for KV store.
 func buildKey(key string) string {
 	return storePrefix + key
-}
-
-// normalize error normalizes Plugin API's errors.
-// please see this docs to know more about what this normalization do: https://golang.org/doc/faq#nil_error
-func normalizeAppErr(err *model.AppError) error {
-	if err == nil {
-		return nil
-	}
-	return err
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/lieut-data/mattermost-plugin-api/dlock/dlocktest"
-	"github.com/stretchr/testify/require"	
+	"github.com/stretchr/testify/require"
 )
 
 // TODO(ilgooz): test all branches including related ones to Store errors and ExpireInSeconds.
