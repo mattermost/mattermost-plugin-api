@@ -28,7 +28,7 @@ import (
 
 Finally, add this package as a dependency:
 ```sh
-go get github.com/lieut-data/mattermost-plugin-api@latest
+go get github.com/lieut-data/mattermost-plugin-api
 ```
 
 ## Migration Guide
