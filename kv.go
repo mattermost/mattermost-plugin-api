@@ -17,35 +17,28 @@ type KVService struct {
 	api plugin.API
 }
 
+type kvSetOptions struct {
+	model.PluginKVSetOptions
+	oldValue interface{}
+}
+
 // KVSetOption is an option passed to Set() operation.
-type KVSetOption func(*model.PluginKVSetOptions) error
+type KVSetOption func(*kvSetOptions) error
 
 // SetAtomic guarantees the write will occur only when the current value of matches the given old
 // value. A client is expected to read the old value first, then pass it back to ensure the value
 // has not since been modified.
 func SetAtomic(oldValue interface{}) KVSetOption {
-	return func(o *model.PluginKVSetOptions) error {
+	return func(o *kvSetOptions) error {
 		o.Atomic = true
-		if oldValue != nil {
-			oldValueBytes, isOldValueInBytes := oldValue.([]byte)
-			if isOldValueInBytes {
-				o.OldValue = oldValueBytes
-			} else {
-				data, err := json.Marshal(oldValue)
-				if err != nil {
-					return errors.Wrapf(err, "failed to marshal value %v", oldValue)
-				}
-
-				o.OldValue = data
-			}
-		}
+		o.oldValue = oldValue
 		return nil
 	}
 }
 
 // SetExpiry configures a key value to expire after the given duration relative to now.
 func SetExpiry(ttl time.Duration) KVSetOption {
-	return func(o *model.PluginKVSetOptions) error {
+	return func(o *kvSetOptions) error {
 		o.ExpireInSeconds = int64(ttl / time.Second)
 		return nil
 	}
@@ -64,7 +57,7 @@ func (k *KVService) Set(key string, value interface{}, options ...KVSetOption) (
 		return false, errors.New("'mmi_' prefix is not allowed for keys")
 	}
 
-	opts := model.PluginKVSetOptions{}
+	opts := kvSetOptions{}
 	for _, o := range options {
 		if err := o(&opts); err != nil {
 			return false, err
@@ -85,7 +78,26 @@ func (k *KVService) Set(key string, value interface{}, options ...KVSetOption) (
 		}
 	}
 
-	written, appErr := k.api.KVSetWithOptions(key, valueBytes, opts)
+	downstreamOpts := model.PluginKVSetOptions{
+		Atomic:          opts.Atomic,
+		ExpireInSeconds: opts.ExpireInSeconds,
+	}
+
+	if opts.oldValue != nil {
+		oldValueBytes, isOldValueInBytes := opts.oldValue.([]byte)
+		if isOldValueInBytes {
+			downstreamOpts.OldValue = oldValueBytes
+		} else {
+			data, err := json.Marshal(opts.oldValue)
+			if err != nil {
+				return false, errors.Wrapf(err, "failed to marshal value %v", opts.oldValue)
+			}
+
+			downstreamOpts.OldValue = data
+		}
+	}
+
+	written, appErr := k.api.KVSetWithOptions(key, valueBytes, downstreamOpts)
 	return written, normalizeAppErr(appErr)
 }
 
