@@ -18,7 +18,6 @@ const (
 // JobPluginAPI is the plugin API interface required to schedule jobs.
 type JobPluginAPI interface {
 	MutexPluginAPI
-	KVGet(key string) ([]byte, *model.AppError)
 }
 
 // JobConfig defines the configuration of a scheduled job.

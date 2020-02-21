@@ -6,20 +6,31 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSchedule(t *testing.T) {
+	t.Parallel()
+
+	makeKey := func() string {
+		return model.NewId()
+	}
+
 	t.Run("invalid interval", func(t *testing.T) {
+		t.Parallel()
+
 		mockPluginAPI := newMockPluginAPI(t)
 
-		job, err := Schedule(mockPluginAPI, "key", JobConfig{}, func() {})
+		job, err := Schedule(mockPluginAPI, makeKey(), JobConfig{}, func() {})
 		require.Error(t, err, "must specify non-zero job config interval")
 		require.Nil(t, job)
 	})
 
 	t.Run("single-threaded", func(t *testing.T) {
+		t.Parallel()
+
 		mockPluginAPI := newMockPluginAPI(t)
 
 		count := new(int32)
@@ -27,7 +38,7 @@ func TestSchedule(t *testing.T) {
 			atomic.AddInt32(count, 1)
 		}
 
-		job, err := Schedule(mockPluginAPI, "key", JobConfig{Interval: 100 * time.Millisecond}, callback)
+		job, err := Schedule(mockPluginAPI, makeKey(), JobConfig{Interval: 100 * time.Millisecond}, callback)
 		require.NoError(t, err)
 		require.NotNil(t, job)
 
@@ -46,6 +57,8 @@ func TestSchedule(t *testing.T) {
 	})
 
 	t.Run("multi-threaded, single job", func(t *testing.T) {
+		t.Parallel()
+
 		mockPluginAPI := newMockPluginAPI(t)
 
 		count := new(int32)
@@ -55,8 +68,10 @@ func TestSchedule(t *testing.T) {
 
 		var jobs []*Job
 
+		key := makeKey()
+
 		for i := 0; i < 3; i++ {
-			job, err := Schedule(mockPluginAPI, "key", JobConfig{Interval: 100 * time.Millisecond}, callback)
+			job, err := Schedule(mockPluginAPI, key, JobConfig{Interval: 100 * time.Millisecond}, callback)
 			require.NoError(t, err)
 			require.NotNil(t, job)
 
@@ -87,6 +102,8 @@ func TestSchedule(t *testing.T) {
 	})
 
 	t.Run("multi-threaded, multiple jobs", func(t *testing.T) {
+		t.Parallel()
+
 		mockPluginAPI := newMockPluginAPI(t)
 
 		countA := new(int32)
@@ -99,15 +116,18 @@ func TestSchedule(t *testing.T) {
 			atomic.AddInt32(countB, 1)
 		}
 
+		keyA := makeKey()
+		keyB := makeKey()
+
 		var jobs []*Job
 		for i := 0; i < 3; i++ {
 			var key string
 			var callback func()
 			if i <= 1 {
-				key = "keyA"
+				key = keyA
 				callback = callbackA
 			} else {
-				key = "keyB"
+				key = keyB
 				callback = callbackB
 			}
 
