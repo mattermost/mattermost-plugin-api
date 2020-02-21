@@ -10,19 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockJobPluginAPI struct {
-	*MockMutexPluginAPI
-}
-
-func NewMockJobPluginAPI(t *testing.T) *MockJobPluginAPI {
-	return &MockJobPluginAPI{
-		MockMutexPluginAPI: NewMockMutexPluginAPI(t),
-	}
-}
-
 func TestSchedule(t *testing.T) {
 	t.Run("invalid interval", func(t *testing.T) {
-		mockPluginAPI := NewMockJobPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		job, err := Schedule(mockPluginAPI, "key", JobConfig{}, func() {})
 		require.Error(t, err, "must specify non-zero job config interval")
@@ -30,7 +20,7 @@ func TestSchedule(t *testing.T) {
 	})
 
 	t.Run("single-threaded", func(t *testing.T) {
-		mockPluginAPI := NewMockJobPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		count := new(int32)
 		callback := func() {
@@ -56,7 +46,7 @@ func TestSchedule(t *testing.T) {
 	})
 
 	t.Run("multi-threaded, single job", func(t *testing.T) {
-		mockPluginAPI := NewMockJobPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		count := new(int32)
 		callback := func() {
@@ -97,7 +87,7 @@ func TestSchedule(t *testing.T) {
 	})
 
 	t.Run("multi-threaded, multiple jobs", func(t *testing.T) {
-		mockPluginAPI := NewMockJobPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		countA := new(int32)
 		callbackA := func() {

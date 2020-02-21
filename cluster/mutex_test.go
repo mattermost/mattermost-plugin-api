@@ -1,93 +1,12 @@
 package cluster
 
 import (
-	"bytes"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type MockMutexPluginAPI struct {
-	t *testing.T
-
-	lock      sync.Mutex
-	keyValues map[string][]byte
-	failing   bool
-}
-
-func NewMockMutexPluginAPI(t *testing.T) *MockMutexPluginAPI {
-	return &MockMutexPluginAPI{
-		t:         t,
-		keyValues: make(map[string][]byte),
-	}
-}
-
-func (pluginAPI *MockMutexPluginAPI) setFailing(failing bool) {
-	pluginAPI.lock.Lock()
-	defer pluginAPI.lock.Unlock()
-
-	pluginAPI.failing = failing
-}
-
-func (pluginAPI *MockMutexPluginAPI) clear() {
-	pluginAPI.lock.Lock()
-	defer pluginAPI.lock.Unlock()
-
-	for k := range pluginAPI.keyValues {
-		delete(pluginAPI.keyValues, k)
-	}
-}
-
-func (pluginAPI *MockMutexPluginAPI) KVGet(key string) ([]byte, *model.AppError) {
-	pluginAPI.lock.Lock()
-	defer pluginAPI.lock.Unlock()
-
-	if pluginAPI.failing {
-		return nil, &model.AppError{Message: "fake error"}
-	}
-
-	return pluginAPI.keyValues[key], nil
-}
-
-func (pluginAPI *MockMutexPluginAPI) KVSetWithOptions(key string, value []byte, options model.PluginKVSetOptions) (bool, *model.AppError) {
-	pluginAPI.lock.Lock()
-	defer pluginAPI.lock.Unlock()
-
-	if pluginAPI.failing {
-		return false, &model.AppError{Message: "fake error"}
-	}
-
-	if options.Atomic {
-		if actualValue := pluginAPI.keyValues[key]; !bytes.Equal(actualValue, options.OldValue) {
-			return false, nil
-		}
-	}
-
-	if value == nil {
-		delete(pluginAPI.keyValues, key)
-	} else {
-		pluginAPI.keyValues[key] = value
-	}
-
-	return true, nil
-}
-
-func (pluginAPI *MockMutexPluginAPI) LogError(msg string, keyValuePairs ...interface{}) {
-	if pluginAPI.t == nil {
-		return
-	}
-
-	pluginAPI.t.Helper()
-
-	params := []interface{}{msg}
-	params = append(params, keyValuePairs...)
-
-	pluginAPI.t.Log(params...)
-}
 
 func lock(t *testing.T, m *Mutex) {
 	t.Helper()
@@ -127,7 +46,7 @@ func unlock(t *testing.T, m *Mutex, panics bool) {
 
 func TestMutex(t *testing.T) {
 	t.Run("successful lock/unlock cycle", func(t *testing.T) {
-		mockPluginAPI := NewMockMutexPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		m := NewMutex(mockPluginAPI, "key")
 		lock(t, m)
@@ -137,14 +56,14 @@ func TestMutex(t *testing.T) {
 	})
 
 	t.Run("unlock when not locked", func(t *testing.T) {
-		mockPluginAPI := NewMockMutexPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		m := NewMutex(mockPluginAPI, "key")
 		unlock(t, m, true)
 	})
 
 	t.Run("blocking lock", func(t *testing.T) {
-		mockPluginAPI := NewMockMutexPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		m := NewMutex(mockPluginAPI, "key")
 		lock(t, m)
@@ -171,7 +90,7 @@ func TestMutex(t *testing.T) {
 	})
 
 	t.Run("failed lock", func(t *testing.T) {
-		mockPluginAPI := NewMockMutexPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		m := NewMutex(mockPluginAPI, "key")
 
@@ -199,7 +118,7 @@ func TestMutex(t *testing.T) {
 	})
 
 	t.Run("failed unlock", func(t *testing.T) {
-		mockPluginAPI := NewMockMutexPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		m := NewMutex(mockPluginAPI, "key")
 		lock(t, m)
@@ -216,7 +135,7 @@ func TestMutex(t *testing.T) {
 	})
 
 	t.Run("discrete keys", func(t *testing.T) {
-		mockPluginAPI := NewMockMutexPluginAPI(t)
+		mockPluginAPI := newMockPluginAPI(t)
 
 		m1 := NewMutex(mockPluginAPI, "key1")
 		lock(t, m1)
