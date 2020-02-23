@@ -20,18 +20,6 @@ const (
 
 	// refreshInterval is the interval on which the mutex will be refreshed when locked
 	refreshInterval = ttl / 2
-
-	// minWaitInterval is the minimum amount of time to wait between locking attempts
-	minWaitInterval = 1 * time.Second
-
-	// maxWaitInterval is the maximum amount of time to wait between locking attempts
-	maxWaitInterval = 5 * time.Minute
-
-	// pollWaitInterval is the usual time to wait between unsuccessful locking attempts
-	pollWaitInterval = 1 * time.Second
-
-	// jitterWaitInterval is the amount of jitter to add when waiting to avoid thundering herds
-	jitterWaitInterval = minWaitInterval / 2
 )
 
 // MutexPluginAPI is the plugin API interface required to manage mutexes.
