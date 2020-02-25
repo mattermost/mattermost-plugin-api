@@ -26,7 +26,8 @@ const (
 // MutexPluginAPI is the plugin API interface required to manage mutexes.
 type MutexPluginAPI interface {
 	KVGet(key string) ([]byte, *model.AppError)
-	KVSetWithOptions(key string, value []byte, options model.PluginKVSetOptions) (bool, *model.AppError)
+	KVCompareAndSet(key string, oldValue, newValue []byte) (bool, *model.AppError)
+	KVCompareAndDelete(key string, oldValue []byte) (bool, *model.AppError)
 	LogError(msg string, keyValuePairs ...interface{})
 }
 
@@ -100,10 +101,7 @@ func (m *Mutex) tryLock() (bool, error) {
 	now := time.Now()
 	newLockExpiry := now.Add(ttl)
 
-	ok, appErr := m.pluginAPI.KVSetWithOptions(m.key, makeLockValue(newLockExpiry), model.PluginKVSetOptions{
-		Atomic:   true,
-		OldValue: nil, // No existing key value.
-	})
+	ok, appErr := m.pluginAPI.KVCompareAndSet(m.key, nil, makeLockValue(newLockExpiry))
 	if appErr != nil {
 		return false, errors.Wrap(appErr, "failed to set mutex kv")
 	}
@@ -134,10 +132,7 @@ func (m *Mutex) tryLock() (bool, error) {
 	}
 
 	// Atomically delete the expired lock and try again.
-	ok, appErr = m.pluginAPI.KVSetWithOptions(m.key, nil, model.PluginKVSetOptions{
-		Atomic:   true,
-		OldValue: valueBytes,
-	})
+	ok, appErr = m.pluginAPI.KVCompareAndDelete(m.key, valueBytes)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to delete mutex kv")
 	}
@@ -151,10 +146,7 @@ func (m *Mutex) refreshLock() error {
 
 	newLockExpiry := now.Add(ttl)
 
-	ok, err := m.pluginAPI.KVSetWithOptions(m.key, makeLockValue(newLockExpiry), model.PluginKVSetOptions{
-		Atomic:   true,
-		OldValue: makeLockValue(m.lockExpiry),
-	})
+	ok, err := m.pluginAPI.KVCompareAndSet(m.key, makeLockValue(m.lockExpiry), makeLockValue(newLockExpiry))
 	if err != nil {
 		return errors.Wrap(err, "failed to refresh mutex kv")
 	} else if !ok {
@@ -231,5 +223,5 @@ func (m *Mutex) Unlock() {
 	m.lock.Unlock()
 
 	// If an error occurs deleting, the mutex kv will still expire, allowing later retry.
-	_, _ = m.pluginAPI.KVSetWithOptions(m.key, nil, model.PluginKVSetOptions{})
+	m.pluginAPI.KVCompareAndDelete(m.key, makeLockValue(m.lockExpiry))
 }
