@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -329,6 +330,70 @@ func TestMutex(t *testing.T) {
 		select {
 		case <-time.After(pollWaitInterval * 2):
 			require.Fail(t, "goroutine should have locked after expiry")
+		case <-done:
+		}
+	})
+
+	t.Run("with uncancelled context", func(t *testing.T) {
+		t.Parallel()
+
+		mockPluginAPI := newMockPluginAPI(t)
+
+		m := NewMutex(mockPluginAPI, makeKey())
+
+		m.Lock()
+
+		ctx := context.Background()
+		done := make(chan bool)
+		go func() {
+			defer close(done)
+			err := m.LockWithContext(ctx)
+			require.Nil(t, err)
+		}()
+
+		select {
+		case <-time.After(ttl + pollWaitInterval*2):
+		case <-done:
+			require.Fail(t, "goroutine should not have locked")
+		}
+
+		m.Unlock()
+
+		select {
+		case <-time.After(pollWaitInterval * 2):
+			require.Fail(t, "goroutine should have locked after unlock")
+		case <-done:
+		}
+	})
+
+	t.Run("with cancelled context", func(t *testing.T) {
+		t.Parallel()
+
+		mockPluginAPI := newMockPluginAPI(t)
+
+		m := NewMutex(mockPluginAPI, makeKey())
+
+		m.Lock()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan bool)
+		go func() {
+			defer close(done)
+			err := m.LockWithContext(ctx)
+			require.NotNil(t, err)
+		}()
+
+		select {
+		case <-time.After(ttl + pollWaitInterval*2):
+		case <-done:
+			require.Fail(t, "goroutine should not have locked")
+		}
+
+		cancel()
+
+		select {
+		case <-time.After(pollWaitInterval * 2):
+			require.Fail(t, "goroutine should have aborted after cancellation")
 		case <-done:
 		}
 	})

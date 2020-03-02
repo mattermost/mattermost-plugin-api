@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"strconv"
 	"sync"
 	"time"
@@ -161,10 +162,23 @@ func (m *Mutex) refreshLock() error {
 // Lock locks m. If the mutex is already locked by any plugin instance, including the current one,
 // the calling goroutine blocks until the mutex can be locked.
 func (m *Mutex) Lock() {
+	m.LockWithContext(context.Background())
+}
+
+// Lock locks m unless the context is cancelled. If the mutex is already locked by any plugin
+// instance, including the current one, the calling goroutine blocks until the mutex can be locked,
+// or the context is cancelled.
+//
+// The mutex is locked only if a nil error is returned.
+func (m *Mutex) LockWithContext(ctx context.Context) error {
 	var waitInterval time.Duration
 
 	for {
-		time.Sleep(waitInterval)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(waitInterval):
+		}
 
 		locked, err := m.tryLock()
 		if err != nil {
@@ -200,7 +214,7 @@ func (m *Mutex) Lock() {
 		m.refreshDone = done
 		m.lock.Unlock()
 
-		return
+		return nil
 	}
 }
 
