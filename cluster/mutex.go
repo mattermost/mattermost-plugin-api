@@ -165,7 +165,7 @@ func (m *Mutex) Lock() {
 	m.LockWithContext(context.Background())
 }
 
-// Lock locks m unless the context is cancelled. If the mutex is already locked by any plugin
+// LockWithContext locks m unless the context is cancelled. If the mutex is already locked by any plugin
 // instance, including the current one, the calling goroutine blocks until the mutex can be locked,
 // or the context is cancelled.
 //
