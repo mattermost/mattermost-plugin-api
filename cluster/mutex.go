@@ -61,20 +61,25 @@ type Mutex struct {
 // NewMutex creates a mutex with the given key name.
 //
 // Panics if key is empty.
-func NewMutex(pluginAPI MutexPluginAPI, key string) *Mutex {
+func NewMutex(pluginAPI MutexPluginAPI, key string) (*Mutex, error) {
+	key, err := makeLockKey(key)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Mutex{
 		pluginAPI: pluginAPI,
-		key:       makeLockKey(key),
-	}
+		key:       key,
+	}, nil
 }
 
 // makeLockKey returns the prefixed key used to namespace mutex keys.
-func makeLockKey(key string) string {
+func makeLockKey(key string) (string, error) {
 	if len(key) == 0 {
-		panic("must specify valid mutex key")
+		return "", errors.New("must specify valid mutex key")
 	}
 
-	return mutexPrefix + key
+	return mutexPrefix + key, nil
 }
 
 // makeLockValue returns the encoded lock value for the given expiry timestamp.
