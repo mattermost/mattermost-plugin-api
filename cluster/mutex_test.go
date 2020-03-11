@@ -10,11 +10,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func mustMakeLockKey(key string) string {
+	key, err := makeLockKey(key)
+	if err != nil {
+		panic(err)
+	}
+
+	return key
+}
+
+func mustNewMutex(pluginAPI MutexPluginAPI, key string) *Mutex {
+	m, err := NewMutex(pluginAPI, key)
+	if err != nil {
+		panic(err)
+	}
+
+	return m
+}
+
 func TestMakeLockKey(t *testing.T) {
-	t.Run("empty", func(t *testing.T) {
-		assert.Panics(t, func() {
-			makeLockKey("")
-		})
+	t.Run("fails when empty", func(t *testing.T) {
+		key, err := makeLockKey("")
+		assert.Error(t, err)
+		assert.Empty(t, key)
 	})
 
 	t.Run("not-empty", func(t *testing.T) {
@@ -24,7 +42,8 @@ func TestMakeLockKey(t *testing.T) {
 		}
 
 		for key, expected := range testCases {
-			actual := makeLockKey(key)
+			actual, err := makeLockKey(key)
+			require.NoError(t, err)
 			assert.Equal(t, expected, actual)
 		}
 	})
@@ -82,7 +101,7 @@ func TestMutex(t *testing.T) {
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		m := NewMutex(mockPluginAPI, makeKey())
+		m := mustNewMutex(mockPluginAPI, makeKey())
 		lock(t, m)
 		unlock(t, m, false)
 		lock(t, m)
@@ -94,7 +113,7 @@ func TestMutex(t *testing.T) {
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		m := NewMutex(mockPluginAPI, makeKey())
+		m := mustNewMutex(mockPluginAPI, makeKey())
 		unlock(t, m, true)
 	})
 
@@ -103,7 +122,7 @@ func TestMutex(t *testing.T) {
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		m := NewMutex(mockPluginAPI, makeKey())
+		m := mustNewMutex(mockPluginAPI, makeKey())
 		lock(t, m)
 
 		done := make(chan bool)
@@ -132,7 +151,7 @@ func TestMutex(t *testing.T) {
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		m := NewMutex(mockPluginAPI, makeKey())
+		m := mustNewMutex(mockPluginAPI, makeKey())
 
 		mockPluginAPI.setFailing(true)
 
@@ -162,7 +181,8 @@ func TestMutex(t *testing.T) {
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		m := NewMutex(mockPluginAPI, makeKey())
+		key := makeKey()
+		m := mustNewMutex(mockPluginAPI, key)
 		lock(t, m)
 
 		mockPluginAPI.setFailing(true)
@@ -181,13 +201,13 @@ func TestMutex(t *testing.T) {
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		m1 := NewMutex(mockPluginAPI, makeKey())
+		m1 := mustNewMutex(mockPluginAPI, makeKey())
 		lock(t, m1)
 
-		m2 := NewMutex(mockPluginAPI, makeKey())
+		m2 := mustNewMutex(mockPluginAPI, makeKey())
 		lock(t, m2)
 
-		m3 := NewMutex(mockPluginAPI, makeKey())
+		m3 := mustNewMutex(mockPluginAPI, makeKey())
 		lock(t, m3)
 
 		unlock(t, m1, false)
@@ -204,7 +224,8 @@ func TestMutex(t *testing.T) {
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		m := NewMutex(mockPluginAPI, makeKey())
+		key := makeKey()
+		m := mustNewMutex(mockPluginAPI, key)
 
 		m.Lock()
 
@@ -236,7 +257,7 @@ func TestMutex(t *testing.T) {
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		m := NewMutex(mockPluginAPI, makeKey())
+		m := mustNewMutex(mockPluginAPI, makeKey())
 
 		m.Lock()
 
