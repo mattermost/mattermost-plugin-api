@@ -30,36 +30,6 @@ func TestMakeLockKey(t *testing.T) {
 	})
 }
 
-func TestLockValue(t *testing.T) {
-	t.Run("empty", func(t *testing.T) {
-		actual, err := getLockValue([]byte{})
-		require.NoError(t, err)
-		require.True(t, actual.IsZero())
-	})
-
-	t.Run("invalid", func(t *testing.T) {
-		actual, err := getLockValue([]byte("abc"))
-		require.Error(t, err)
-		require.True(t, actual.IsZero())
-	})
-
-	t.Run("successful", func(t *testing.T) {
-		testCases := []time.Time{
-			time.Now().Add(-15 * time.Second),
-			time.Now(),
-			time.Now().Add(15 * time.Second),
-		}
-
-		for _, testCase := range testCases {
-			t.Run(testCase.Format("Mon Jan 2 15:04:05 -0700 MST 2006"), func(t *testing.T) {
-				actual, err := getLockValue(makeLockValue(testCase))
-				require.NoError(t, err)
-				require.Equal(t, testCase.Truncate(0), actual.Truncate(0))
-			})
-		}
-	})
-}
-
 func lock(t *testing.T, m *Mutex) {
 	t.Helper()
 
@@ -72,7 +42,7 @@ func lock(t *testing.T, m *Mutex) {
 	}()
 
 	select {
-	case <-time.After(2 * time.Second):
+	case <-time.After(1 * time.Second):
 		require.Fail(t, "failed to lock mutex within 1 second")
 	case <-done:
 	}
@@ -227,91 +197,6 @@ func TestMutex(t *testing.T) {
 
 		unlock(t, m2, false)
 		unlock(t, m1, false)
-	})
-
-	t.Run("expiring lock", func(t *testing.T) {
-		t.Parallel()
-
-		mockPluginAPI := newMockPluginAPI(t)
-
-		key := makeKey()
-		m := NewMutex(mockPluginAPI, key)
-
-		// Simulate lock expiring in 5 seconds
-		now := time.Now()
-		ok, appErr := mockPluginAPI.KVSetWithOptions(mutexPrefix+key, makeLockValue(now.Add(5*time.Second)), model.PluginKVSetOptions{})
-		require.Nil(t, appErr)
-		require.True(t, ok)
-
-		done1 := make(chan bool)
-		go func() {
-			defer close(done1)
-			m.Lock()
-		}()
-
-		done2 := make(chan bool)
-		go func() {
-			defer close(done2)
-			m.Lock()
-		}()
-
-		select {
-		case <-time.After(1 * time.Second):
-		case <-done1:
-			require.Fail(t, "first goroutine should not have locked yet")
-		case <-done2:
-			require.Fail(t, "second goroutine should not have locked yet")
-		}
-
-		select {
-		case <-time.After(4*time.Second + pollWaitInterval*2):
-			require.Fail(t, "some goroutine should have locked after expiry")
-		case <-done1:
-			m.Unlock()
-			select {
-			case <-done2:
-			case <-time.After(pollWaitInterval * 2):
-				require.Fail(t, "second goroutine should have locked")
-			}
-
-		case <-done2:
-			m.Unlock()
-			select {
-			case <-done2:
-			case <-time.After(pollWaitInterval * 2):
-				require.Fail(t, "first goroutine should have locked")
-			}
-		}
-	})
-
-	t.Run("held lock does not expire", func(t *testing.T) {
-		t.Parallel()
-
-		mockPluginAPI := newMockPluginAPI(t)
-
-		m := NewMutex(mockPluginAPI, makeKey())
-
-		m.Lock()
-
-		done := make(chan bool)
-		go func() {
-			defer close(done)
-			m.Lock()
-		}()
-
-		select {
-		case <-time.After(ttl + pollWaitInterval*2):
-		case <-done:
-			require.Fail(t, "goroutine should not have locked")
-		}
-
-		m.Unlock()
-
-		select {
-		case <-time.After(pollWaitInterval * 2):
-			require.Fail(t, "goroutine should have locked after expiry")
-		case <-done:
-		}
 	})
 
 	t.Run("with uncancelled context", func(t *testing.T) {
