@@ -187,42 +187,21 @@ func TestMutex(t *testing.T) {
 		}
 	})
 
-	t.Run("failed unlock, key deleted", func(t *testing.T) {
+	t.Run("failed unlock", func(t *testing.T) {
 		t.Parallel()
 
 		mockPluginAPI := newMockPluginAPI(t)
 
-		key := makeKey()
-		m := NewMutex(mockPluginAPI, key)
+		m := NewMutex(mockPluginAPI, makeKey())
 		lock(t, m)
 
 		mockPluginAPI.setFailing(true)
 
 		unlock(t, m, false)
 
-		// Simulate expiry by deleting key
+		// Simulate expiry
+		mockPluginAPI.clear()
 		mockPluginAPI.setFailing(false)
-		mockPluginAPI.KVDelete(makeLockKey(key))
-
-		lock(t, m)
-	})
-
-	t.Run("failed unlock, key expired", func(t *testing.T) {
-		t.Parallel()
-
-		mockPluginAPI := newMockPluginAPI(t)
-
-		key := makeKey()
-		m := NewMutex(mockPluginAPI, key)
-		lock(t, m)
-
-		mockPluginAPI.setFailing(true)
-
-		unlock(t, m, false)
-
-		// Simulate expiry by writing expired value
-		mockPluginAPI.setFailing(false)
-		mockPluginAPI.KVSet(makeLockKey(key), makeLockValue(time.Now().Add(-1*time.Second)))
 
 		lock(t, m)
 	})
@@ -260,8 +239,9 @@ func TestMutex(t *testing.T) {
 
 		// Simulate lock expiring in 5 seconds
 		now := time.Now()
-		appErr := mockPluginAPI.KVSet(makeLockKey(key), makeLockValue(now.Add(5*time.Second)))
+		ok, appErr := mockPluginAPI.KVSetWithOptions(mutexPrefix+key, makeLockValue(now.Add(5*time.Second)), model.PluginKVSetOptions{})
 		require.Nil(t, appErr)
+		require.True(t, ok)
 
 		done1 := make(chan bool)
 		go func() {

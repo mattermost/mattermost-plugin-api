@@ -18,7 +18,6 @@ const (
 // JobPluginAPI is the plugin API interface required to schedule jobs.
 type JobPluginAPI interface {
 	MutexPluginAPI
-	KVSet(key string, value []byte) *model.AppError
 }
 
 // JobConfig defines the configuration of a scheduled job.
@@ -102,8 +101,8 @@ func (j *Job) saveMetadata(metadata jobMetadata) error {
 		return errors.Wrap(err, "failed to marshal data")
 	}
 
-	appErr := j.pluginAPI.KVSet(j.key, data)
-	if appErr != nil {
+	ok, appErr := j.pluginAPI.KVSetWithOptions(j.key, data, model.PluginKVSetOptions{})
+	if appErr != nil || !ok {
 		return errors.Wrap(appErr, "failed to set data")
 	}
 
