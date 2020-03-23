@@ -41,10 +41,7 @@ func (b *BotService) EnsureBot(bot *model.Bot, options ...EnsureBotOption) (retB
 	}
 
 	// Default options
-	o := &ensureBotOptions{
-		ProfileImagePath: "",
-		IconImagePath:    "",
-	}
+	o := &ensureBotOptions{}
 
 	for _, setter := range options {
 		setter(o)
