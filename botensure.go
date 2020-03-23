@@ -62,11 +62,11 @@ func (b *BotService) EnsureBot(bot *model.Bot, options ...EnsureBotOption) (retB
 func (b *BotService) ensureBot(bot *model.Bot) (retBotID string, retErr error) {
 	// Must provide a bot with a username
 	if bot == nil {
-		return "", errors.New("passed a bad bot, nil")
+		return "", errors.New("passed a nil bot")
 	}
 
 	if len(bot.Username) < 1 {
-		return "", errors.New("passed a bad bot, no username")
+		return "", errors.New("passed a bot with no username")
 	}
 
 	// If we fail for any reason, this could be a race between creation of bot and
