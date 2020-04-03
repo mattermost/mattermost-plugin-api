@@ -5,11 +5,41 @@ import (
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/pkg/errors"
 )
 
 // SystemService exposes methods to query system properties.
 type SystemService struct {
 	api plugin.API
+	m   *model.Manifest
+}
+
+// GetManifest returns the manifest from the plugin bundle.
+//
+// Minimum server version: 5.10
+func (s *SystemService) GetManifest() (*model.Manifest, error) {
+	// Use a copy of cache manifest is present
+	if s.m != nil {
+		m := *s.m
+		return &m, nil
+	}
+
+	path, err := s.api.GetBundlePath()
+	if err != nil {
+		return nil, err
+	}
+
+	m, _, err := model.FindManifest(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to find and open manifest")
+	}
+
+	s.m = m
+
+	// Copy before returning
+	rm := *m
+
+	return &rm, nil
 }
 
 // GetBundlePath returns the absolute path where the plugin's bundle was unpacked.
