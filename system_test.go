@@ -36,7 +36,7 @@ func TestGetManifest(t *testing.T) {
 		require.NoError(t, err)
 
 		api := &plugintest.API{}
-		api.On("GetBundlePath").Return(dir, nil).Once()
+		api.On("GetBundlePath").Return(dir, nil)
 		defer api.AssertExpectations(t)
 		client := pluginapi.NewClient(api)
 		m, err := client.System.GetManifest()
