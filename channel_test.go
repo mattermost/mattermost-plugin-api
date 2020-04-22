@@ -108,10 +108,40 @@ func TestGetPublicTeamChannels(t *testing.T) {
 }
 
 func TestCreateChannel(t *testing.T) {
+	t.Run("create channel with no replicas", func(t *testing.T) {
+		api := &plugintest.API{}
+		defer api.AssertExpectations(t)
+		client := pluginapi.NewClient(api)
+
+		config := &model.Config{
+			SqlSettings: model.SqlSettings{
+				DataSourceReplicas: []string{},
+			},
+		}
+		api.On("GetConfig").Return(config).Once()
+
+		c := &model.Channel{
+			Id:          model.NewId(),
+			Name:        "name",
+			DisplayName: "displayname",
+		}
+		api.On("CreateChannel", c).Return(c, nil).Once()
+
+		err := client.Channel.Create(c)
+		require.NoError(t, err)
+	})
+
 	t.Run("create channel and wait once", func(t *testing.T) {
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
 		client := pluginapi.NewClient(api)
+
+		config := &model.Config{
+			SqlSettings: model.SqlSettings{
+				DataSourceReplicas: []string{"replica1"},
+			},
+		}
+		api.On("GetConfig").Return(config).Once()
 
 		c := &model.Channel{
 			Id:          model.NewId(),
@@ -129,6 +159,13 @@ func TestCreateChannel(t *testing.T) {
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
 		client := pluginapi.NewClient(api)
+
+		config := &model.Config{
+			SqlSettings: model.SqlSettings{
+				DataSourceReplicas: []string{"replica1"},
+			},
+		}
+		api.On("GetConfig").Return(config).Once()
 
 		c := &model.Channel{
 			Id:          model.NewId(),
@@ -149,6 +186,13 @@ func TestCreateChannel(t *testing.T) {
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
 		client := pluginapi.NewClient(api)
+
+		config := &model.Config{
+			SqlSettings: model.SqlSettings{
+				DataSourceReplicas: []string{"replica1"},
+			},
+		}
+		api.On("GetConfig").Return(config).Once()
 
 		c := &model.Channel{
 			Id:          model.NewId(),
@@ -171,6 +215,13 @@ func TestCreateChannel(t *testing.T) {
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
 		client := pluginapi.NewClient(api)
+
+		config := &model.Config{
+			SqlSettings: model.SqlSettings{
+				DataSourceReplicas: []string{"replica1"},
+			},
+		}
+		api.On("GetConfig").Return(config).Once()
 
 		c := &model.Channel{
 			Id:          model.NewId(),

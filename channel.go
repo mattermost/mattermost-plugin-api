@@ -101,7 +101,7 @@ func (c *ChannelService) Create(channel *model.Channel) error {
 
 	*channel = *createdChannel
 
-	return c.waitForChannelCreation(createdChannel.Id)
+	return c.waitForChannelCreation(channel.Id)
 }
 
 // Update updates a channel.
@@ -218,6 +218,10 @@ func (c *ChannelService) UpdateChannelMemberNotifications(channelID, userID stri
 }
 
 func (c *ChannelService) waitForChannelCreation(channelID string) error {
+	if len(c.api.GetConfig().SqlSettings.DataSourceReplicas) == 0 {
+		return nil
+	}
+
 	now := time.Now()
 
 	for time.Since(now) < 1500*time.Millisecond {
