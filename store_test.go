@@ -38,6 +38,37 @@ func TestStore(t *testing.T) {
 		require.Nil(t, db)
 	})
 
+	t.Run("master db singleton", func(t *testing.T) {
+		db, err := sql.Open("ramsql", "TestStore-master-db")
+		require.NoError(t, err)
+		defer db.Close()
+
+		config := &model.Config{
+			SqlSettings: model.SqlSettings{
+				DriverName:                  model.NewString("ramsql"),
+				DataSource:                  model.NewString("TestStore-master-db"),
+				ConnMaxLifetimeMilliseconds: model.NewInt(2),
+			},
+		}
+
+		api := &plugintest.API{}
+		defer api.AssertExpectations(t)
+		api.On("GetLicense").Return(&model.License{})
+		api.On("GetUnsanitizedConfig").Return(config)
+
+		store := pluginapi.NewStore(api)
+
+		db1, err := store.GetMasterDB()
+		require.NoError(t, err)
+		require.NotNil(t, db1)
+
+		db2, err := store.GetMasterDB()
+		require.NoError(t, err)
+		require.NotNil(t, db2)
+
+		require.Same(t, db1, db2)
+	})
+
 	t.Run("master db", func(t *testing.T) {
 		db, err := sql.Open("ramsql", "TestStore-master-db")
 		require.NoError(t, err)
@@ -75,6 +106,38 @@ func TestStore(t *testing.T) {
 		db, err = store.GetReplicaDB()
 		require.NoError(t, err)
 		require.Nil(t, db)
+	})
+
+	t.Run("replica db singleton", func(t *testing.T) {
+		db, err := sql.Open("ramsql", "TestStore-master-db")
+		require.NoError(t, err)
+		defer db.Close()
+
+		config := &model.Config{
+			SqlSettings: model.SqlSettings{
+				DriverName:                  model.NewString("ramsql"),
+				DataSource:                  model.NewString("TestStore-master-db"),
+				DataSourceReplicas:          []string{"TestStore-master-db"},
+				ConnMaxLifetimeMilliseconds: model.NewInt(2),
+			},
+		}
+
+		api := &plugintest.API{}
+		defer api.AssertExpectations(t)
+		api.On("GetLicense").Return(&model.License{})
+		api.On("GetUnsanitizedConfig").Return(config)
+
+		store := pluginapi.NewStore(api)
+
+		db1, err := store.GetReplicaDB()
+		require.NoError(t, err)
+		require.NotNil(t, db1)
+
+		db2, err := store.GetReplicaDB()
+		require.NoError(t, err)
+		require.NotNil(t, db2)
+
+		require.Same(t, db1, db2)
 	})
 
 	t.Run("replica db", func(t *testing.T) {
