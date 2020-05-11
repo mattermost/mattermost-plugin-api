@@ -1,7 +1,14 @@
 package pluginapi
 
 import (
+	"sync"
+
 	"github.com/mattermost/mattermost-server/v5/plugin"
+)
+
+var (
+	storeOnce     sync.Once
+	storeInstance *StoreService
 )
 
 // Client is a streamlined wrapper over the mattermost plugin API.
@@ -22,6 +29,7 @@ type Client struct {
 	Plugin        PluginService
 	Post          PostService
 	Session       SessionService
+	Store         *StoreService
 	System        SystemService
 	Team          TeamService
 	User          UserService
@@ -46,8 +54,19 @@ func NewClient(api plugin.API) *Client {
 		Plugin:        PluginService{api: api},
 		Post:          PostService{api: api},
 		Session:       SessionService{api: api},
+		Store:         getStore(api),
 		System:        SystemService{api: api},
 		Team:          TeamService{api: api},
 		User:          UserService{api: api},
 	}
+}
+
+func getStore(api plugin.API) *StoreService {
+	storeOnce.Do(func() {
+		if storeInstance == nil {
+			storeInstance = NewStore(api)
+		}
+	})
+
+	return storeInstance
 }
