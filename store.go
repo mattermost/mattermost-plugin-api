@@ -41,7 +41,7 @@ func (s *StoreService) GetMasterDB() (*sql.DB, error) {
 }
 
 // Gets the replica database handle.
-// Returns (nil, nil) if no replica is configured.
+// Returns masterDB if a replica is not configured.
 //
 // Minimum server version: 5.16
 func (s *StoreService) GetReplicaDB() (*sql.DB, error) {
@@ -49,7 +49,11 @@ func (s *StoreService) GetReplicaDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	return s.replicaDB, nil
+	if s.replicaDB != nil {
+		return s.replicaDB, nil
+	}
+
+	return s.masterDB, nil
 }
 
 // Close closes any open resources. This method is idempotent.
@@ -69,6 +73,10 @@ func (s *StoreService) Close() error {
 	}
 
 	return nil
+}
+
+func (s *StoreService) DriverName() string {
+	return *s.api.GetConfig().SqlSettings.DriverName
 }
 
 func (s *StoreService) initialize() error {
