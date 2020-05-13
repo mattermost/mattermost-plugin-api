@@ -15,6 +15,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrNoLicense is returned only when there is no enterprise license set.
+var ErrNoLicense = errors.New("this feature requires a valid enterprise license")
+
 // StoreService exposes the underlying database.
 type StoreService struct {
 	initialized bool
@@ -58,6 +61,9 @@ func (s *StoreService) GetReplicaDB() (*sql.DB, error) {
 
 // Close closes any open resources. This method is idempotent.
 func (s *StoreService) Close() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if !s.initialized {
 		return nil
 	}
@@ -75,47 +81,44 @@ func (s *StoreService) Close() error {
 	return nil
 }
 
+// DriverName returns the driver name for the datasource.
 func (s *StoreService) DriverName() string {
 	return *s.api.GetConfig().SqlSettings.DriverName
 }
 
 func (s *StoreService) initialize() error {
-	// This check is not atomic; not worth the extra complexity here
-	// considering this method is not called very often.
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if s.initialized {
 		return nil
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if !s.initialized {
-		if s.api.GetLicense() == nil {
-			return errors.New("this feature requires a valid enterprise license")
-		}
-
-		config := s.api.GetUnsanitizedConfig()
-
-		// Set up master db
-		db, err := setupConnection(*config.SqlSettings.DataSource, config.SqlSettings)
-		if err != nil {
-			return errors.Wrap(err, "failed to connect to master db")
-		}
-		s.masterDB = db
-
-		// Set up replica db
-		if len(config.SqlSettings.DataSourceReplicas) > 0 {
-			replicaSource := config.SqlSettings.DataSourceReplicas[rand.Intn(len(config.SqlSettings.DataSourceReplicas))]
-
-			db, err := setupConnection(replicaSource, config.SqlSettings)
-			if err != nil {
-				return errors.Wrap(err, "failed to connect to replica db")
-			}
-			s.replicaDB = db
-		}
-
-		s.initialized = true
+	if s.api.GetLicense() == nil {
+		return ErrNoLicense
 	}
+
+	config := s.api.GetUnsanitizedConfig()
+
+	// Set up master db
+	db, err := setupConnection(*config.SqlSettings.DataSource, config.SqlSettings)
+	if err != nil {
+		return errors.Wrap(err, "failed to connect to master db")
+	}
+	s.masterDB = db
+
+	// Set up replica db
+	if len(config.SqlSettings.DataSourceReplicas) > 0 {
+		replicaSource := config.SqlSettings.DataSourceReplicas[rand.Intn(len(config.SqlSettings.DataSourceReplicas))]
+
+		db, err := setupConnection(replicaSource, config.SqlSettings)
+		if err != nil {
+			return errors.Wrap(err, "failed to connect to replica db")
+		}
+		s.replicaDB = db
+	}
+
+	s.initialized = true
 
 	return nil
 }
