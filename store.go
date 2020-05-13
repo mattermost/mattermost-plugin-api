@@ -27,10 +27,6 @@ type StoreService struct {
 	replicaDB *sql.DB
 }
 
-func NewStore(api plugin.API) *StoreService {
-	return &StoreService{api: api}
-}
-
 // Gets the master database handle.
 //
 // Minimum server version: 5.16

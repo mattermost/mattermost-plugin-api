@@ -13,29 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStoreSingleton(t *testing.T) {
-	api1 := &plugintest.API{}
-	defer api1.AssertExpectations(t)
-	client1 := pluginapi.NewClient(api1)
-	storePtr1 := client1.Store
-
-	api2 := &plugintest.API{}
-	defer api2.AssertExpectations(t)
-	client2 := pluginapi.NewClient(api2)
-	storePtr2 := client2.Store
-
-	require.Same(t, storePtr1, storePtr2)
-}
 func TestStore(t *testing.T) {
 	t.Run("no license", func(t *testing.T) {
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
-		store := pluginapi.NewStore(api)
+		store := pluginapi.NewClient(api).Store
 
 		api.On("GetLicense").Return(nil)
 		db, err := store.GetMasterDB()
 		require.Error(t, err)
 		require.Nil(t, db)
+
+		require.NoError(t, store.Close())
 	})
 
 	t.Run("master db singleton", func(t *testing.T) {
@@ -56,7 +45,7 @@ func TestStore(t *testing.T) {
 		api.On("GetLicense").Return(&model.License{})
 		api.On("GetUnsanitizedConfig").Return(config)
 
-		store := pluginapi.NewStore(api)
+		store := pluginapi.NewClient(api).Store
 
 		db1, err := store.GetMasterDB()
 		require.NoError(t, err)
@@ -67,6 +56,7 @@ func TestStore(t *testing.T) {
 		require.NotNil(t, db2)
 
 		require.Same(t, db1, db2)
+		require.NoError(t, store.Close())
 	})
 
 	t.Run("master db", func(t *testing.T) {
@@ -89,23 +79,25 @@ func TestStore(t *testing.T) {
 
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
-		store := pluginapi.NewStore(api)
+		store := pluginapi.NewClient(api).Store
 		api.On("GetLicense").Return(&model.License{})
 
 		api.On("GetUnsanitizedConfig").Return(config)
-		db, err = store.GetMasterDB()
+		masterDB, err := store.GetMasterDB()
 		require.NoError(t, err)
-		require.NotNil(t, db)
+		require.NotNil(t, masterDB)
 
 		var id int
-		err = db.QueryRow("SELECT id FROM test").Scan(&id)
+		err = masterDB.QueryRow("SELECT id FROM test").Scan(&id)
 		require.NoError(t, err)
 		require.Equal(t, 2, id)
 
-		// No replica is set up
-		db, err = store.GetReplicaDB()
+		// No replica is set up, should fallback to master
+		replicaDB, err := store.GetReplicaDB()
 		require.NoError(t, err)
-		require.Nil(t, db)
+		require.Same(t, replicaDB, masterDB)
+
+		require.NoError(t, store.Close())
 	})
 
 	t.Run("replica db singleton", func(t *testing.T) {
@@ -127,7 +119,7 @@ func TestStore(t *testing.T) {
 		api.On("GetLicense").Return(&model.License{})
 		api.On("GetUnsanitizedConfig").Return(config)
 
-		store := pluginapi.NewStore(api)
+		store := pluginapi.NewClient(api).Store
 
 		db1, err := store.GetReplicaDB()
 		require.NoError(t, err)
@@ -138,6 +130,7 @@ func TestStore(t *testing.T) {
 		require.NotNil(t, db2)
 
 		require.Same(t, db1, db2)
+		require.NoError(t, store.Close())
 	})
 
 	t.Run("replica db", func(t *testing.T) {
@@ -168,9 +161,9 @@ func TestStore(t *testing.T) {
 
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
-		store := pluginapi.NewStore(api)
-		api.On("GetLicense").Return(&model.License{})
+		store := pluginapi.NewClient(api).Store
 
+		api.On("GetLicense").Return(&model.License{})
 		api.On("GetUnsanitizedConfig").Return(config)
 		storeMasterDB, err := store.GetMasterDB()
 		require.NoError(t, err)
@@ -189,5 +182,7 @@ func TestStore(t *testing.T) {
 		err = storeReplicaDB.QueryRow("SELECT id FROM test").Scan(&id)
 		require.NoError(t, err)
 		require.Equal(t, 3, id)
+
+		require.NoError(t, store.Close())
 	})
 }
