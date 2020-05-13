@@ -2,7 +2,6 @@ package pluginapi
 
 import (
 	"database/sql"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -109,7 +108,7 @@ func (s *StoreService) initialize() error {
 
 	// Set up replica db
 	if len(config.SqlSettings.DataSourceReplicas) > 0 {
-		replicaSource := config.SqlSettings.DataSourceReplicas[rand.Intn(len(config.SqlSettings.DataSourceReplicas))]
+		replicaSource := config.SqlSettings.DataSourceReplicas[0]
 
 		db, err := setupConnection(replicaSource, config.SqlSettings)
 		if err != nil {
