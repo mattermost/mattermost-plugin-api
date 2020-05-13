@@ -35,6 +35,9 @@ func NewStore(api plugin.API) *StoreService {
 //
 // Minimum server version: 5.16
 func (s *StoreService) GetMasterDB() (*sql.DB, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if err := s.initialize(); err != nil {
 		return nil, err
 	}
@@ -47,6 +50,9 @@ func (s *StoreService) GetMasterDB() (*sql.DB, error) {
 //
 // Minimum server version: 5.16
 func (s *StoreService) GetReplicaDB() (*sql.DB, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if err := s.initialize(); err != nil {
 		return nil, err
 	}
@@ -86,9 +92,6 @@ func (s *StoreService) DriverName() string {
 }
 
 func (s *StoreService) initialize() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if s.initialized {
 		return nil
 	}
