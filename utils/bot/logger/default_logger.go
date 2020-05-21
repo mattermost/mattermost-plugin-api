@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mattermost/mattermost-plugin-api/utils/bot"
 	"github.com/mattermost/mattermost-plugin-api/utils/bot/poster"
 	"github.com/mattermost/mattermost-plugin-api/utils/common"
 	"github.com/mattermost/mattermost-server/v5/plugin"
@@ -15,17 +14,19 @@ import (
 
 type defaultLogger struct {
 	Config
-	poster.Poster
-	bot.Admin
+	admin
 	logContext LogContext
 	pluginAPI  plugin.API
 }
 
-func NewLogger(c Config, p poster.Poster, a bot.Admin, api plugin.API) Logger {
+func NewLogger(c Config, api plugin.API, p poster.Poster, adminUserIDs string) Logger {
+	var loggerAdmin admin = nil
+	if p != nil {
+		loggerAdmin = NewAdmin(adminUserIDs, p)
+	}
 	return &defaultLogger{
 		Config:    c,
-		Poster:    p,
-		Admin:     a,
+		admin:     loggerAdmin,
 		pluginAPI: api,
 	}
 }
@@ -84,7 +85,7 @@ func (l *defaultLogger) Warnf(format string, args ...interface{}) {
 }
 
 func (l *defaultLogger) logToAdmins(level, message string) {
-	if l.Admin == nil {
+	if l.admin == nil {
 		return
 	}
 

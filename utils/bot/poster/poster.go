@@ -8,8 +8,7 @@ import (
 )
 
 type Poster interface {
-	// DM posts a simple Direct Message to the specified user
-	DM(mattermostUserID, format string, args ...interface{}) (string, error)
+	DMer
 
 	// DMWithAttachments posts a Direct Message that contains Slack attachments.
 	// Often used to include post actions.
@@ -29,4 +28,9 @@ type Poster interface {
 
 	// UpdatePosterID updates the Mattermost User ID of the poster
 	UpdatePosterID(id string)
+}
+
+type DMer interface {
+	// DM posts a simple Direct Message to the specified user
+	DM(mattermostUserID, format string, args ...interface{}) (string, error)
 }
