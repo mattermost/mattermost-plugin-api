@@ -27,7 +27,7 @@ type StoreService struct {
 	replicaDB *sql.DB
 }
 
-// GetMasterDB Gets the master database handle.
+// GetMasterDB gets the master database handle.
 //
 // Minimum server version: 5.16
 func (s *StoreService) GetMasterDB() (*sql.DB, error) {
@@ -41,7 +41,7 @@ func (s *StoreService) GetMasterDB() (*sql.DB, error) {
 	return s.masterDB, nil
 }
 
-// GetReplicaDB Gets the replica database handle.
+// GetReplicaDB gets the replica database handle.
 // Returns masterDB if a replica is not configured.
 //
 // Minimum server version: 5.16
