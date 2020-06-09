@@ -92,7 +92,7 @@ func (ftf *freetextFetcher) MessageHasBeenPosted(c *plugin.Context, post *model.
 	}
 
 	ftf.postConfirmation(post.UserId, post.Message, pluginURL, payload)
-	err = ftf.store.StopFetching(post.UserId, ftf.id)
+	err = ftf.store.StopFetching(post.UserId)
 	if err != nil {
 		loggerBot.Errorf("error stopping the text fetching: %s", err.Error())
 		return
