@@ -3,12 +3,12 @@ package settings
 import "github.com/mattermost/mattermost-server/v5/model"
 
 func stringsToOptions(in []string) []*model.PostActionOptions {
-	out := []*model.PostActionOptions{}
-	for _, o := range in {
-		out = append(out, &model.PostActionOptions{
+	out := make([]*model.PostActionOptions, len(in))
+	for i, o := range in {
+		out[i] = &model.PostActionOptions{
 			Text:  o,
 			Value: o,
-		})
+		}
 	}
 	return out
 }
