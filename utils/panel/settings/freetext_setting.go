@@ -12,11 +12,8 @@ import (
 )
 
 type freetextSetting struct {
-	title         string
-	description   string
+	baseSetting
 	modifyMessage string
-	id            string
-	dependsOn     string
 	pluginURL     string
 	store         SettingStore
 	ftf           freetext_fetcher.FreetextFetcher
@@ -29,11 +26,13 @@ type FreetextInfo struct {
 
 func NewFreetextSetting(id, title, description, modifyMessage, dependsOn string, store SettingStore, baseURL string, pluginURL string, ftfStore freetext_fetcher.FreetextStore, validate func(string) string, r *mux.Router, posterBot poster.Poster) Setting {
 	setting := &freetextSetting{
-		title:         title,
-		description:   description,
+		baseSetting: baseSetting{
+			title:       title,
+			description: description,
+			id:          id,
+			dependsOn:   dependsOn,
+		},
 		modifyMessage: modifyMessage,
-		id:            id,
-		dependsOn:     dependsOn,
 		store:         store,
 		pluginURL:     pluginURL,
 	}
@@ -61,22 +60,6 @@ func (s *freetextSetting) Get(userID string) (interface{}, error) {
 	}
 
 	return stringValue, nil
-}
-
-func (s *freetextSetting) GetID() string {
-	return s.id
-}
-
-func (s *freetextSetting) GetTitle() string {
-	return s.title
-}
-
-func (s *freetextSetting) GetDescription() string {
-	return s.description
-}
-
-func (s *freetextSetting) GetDependency() string {
-	return s.dependsOn
 }
 
 func (s *freetextSetting) GetSlackAttachments(userID, settingHandler string, disabled bool) (*model.SlackAttachment, error) {

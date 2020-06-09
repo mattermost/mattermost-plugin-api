@@ -4,30 +4,24 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/mattermost/mattermost-plugin-api/utils/freetext_fetcher"
 	"github.com/mattermost/mattermost-server/v5/model"
 )
 
 type readOnlySetting struct {
-	title       string
-	description string
-	id          string
-	dependsOn   string
-	store       SettingStore
+	baseSetting
+	store SettingStore
 }
 
 func NewReadOnlySetting(id string, title string, description string, dependsOn string, store SettingStore) Setting {
 	return &readOnlySetting{
-		title:       title,
-		description: description,
-		id:          id,
-		dependsOn:   dependsOn,
-		store:       store,
+		baseSetting: baseSetting{
+			title:       title,
+			description: description,
+			id:          id,
+			dependsOn:   dependsOn,
+		},
+		store: store,
 	}
-}
-
-func (s *readOnlySetting) Set(userID string, value interface{}) error {
-	return nil
 }
 
 func (s *readOnlySetting) Get(userID string) (interface{}, error) {
@@ -41,22 +35,6 @@ func (s *readOnlySetting) Get(userID string) (interface{}, error) {
 	}
 
 	return stringValue, nil
-}
-
-func (s *readOnlySetting) GetID() string {
-	return s.id
-}
-
-func (s *readOnlySetting) GetTitle() string {
-	return s.title
-}
-
-func (s *readOnlySetting) GetDescription() string {
-	return s.description
-}
-
-func (s *readOnlySetting) GetDependency() string {
-	return s.dependsOn
 }
 
 func (s *readOnlySetting) GetSlackAttachments(userID, settingHandler string, disabled bool) (*model.SlackAttachment, error) {
@@ -82,8 +60,4 @@ func (s *readOnlySetting) GetSlackAttachments(userID, settingHandler string, dis
 
 func (s *readOnlySetting) IsDisabled(foreignValue interface{}) bool {
 	return foreignValue == "false"
-}
-
-func (s *readOnlySetting) GetFreetextFetcher() freetext_fetcher.FreetextFetcher {
-	return nil
 }

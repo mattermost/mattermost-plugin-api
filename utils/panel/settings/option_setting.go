@@ -4,27 +4,25 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/mattermost/mattermost-plugin-api/utils/freetext_fetcher"
 	"github.com/mattermost/mattermost-server/v5/model"
 )
 
 type optionSetting struct {
-	title       string
-	description string
-	id          string
-	dependsOn   string
-	options     []string
-	store       SettingStore
+	baseSetting
+	options []string
+	store   SettingStore
 }
 
 func NewOptionSetting(id string, title string, description string, dependsOn string, options []string, store SettingStore) Setting {
 	return &optionSetting{
-		title:       title,
-		description: description,
-		id:          id,
-		dependsOn:   dependsOn,
-		options:     options,
-		store:       store,
+		baseSetting: baseSetting{
+			title:       title,
+			description: description,
+			id:          id,
+			dependsOn:   dependsOn,
+		},
+		options: options,
+		store:   store,
 	}
 }
 
@@ -48,22 +46,6 @@ func (s *optionSetting) Get(userID string) (interface{}, error) {
 	}
 
 	return valueString, nil
-}
-
-func (s *optionSetting) GetID() string {
-	return s.id
-}
-
-func (s *optionSetting) GetTitle() string {
-	return s.title
-}
-
-func (s *optionSetting) GetDescription() string {
-	return s.description
-}
-
-func (s *optionSetting) GetDependency() string {
-	return s.dependsOn
 }
 
 func (s *optionSetting) GetSlackAttachments(userID, settingHandler string, disabled bool) (*model.SlackAttachment, error) {
@@ -104,8 +86,4 @@ func (s *optionSetting) GetSlackAttachments(userID, settingHandler string, disab
 
 func (s *optionSetting) IsDisabled(foreignValue interface{}) bool {
 	return foreignValue == "false"
-}
-
-func (s *optionSetting) GetFreetextFetcher() freetext_fetcher.FreetextFetcher {
-	return nil
 }

@@ -4,25 +4,23 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/mattermost/mattermost-plugin-api/utils/freetext_fetcher"
 	"github.com/mattermost/mattermost-server/v5/model"
 )
 
 type boolSetting struct {
-	title       string
-	description string
-	id          string
-	dependsOn   string
-	store       SettingStore
+	baseSetting
+	store SettingStore
 }
 
 func NewBoolSetting(id string, title string, description string, dependsOn string, store SettingStore) Setting {
 	return &boolSetting{
-		title:       title,
-		description: description,
-		id:          id,
-		dependsOn:   dependsOn,
-		store:       store,
+		baseSetting: baseSetting{
+			title:       title,
+			description: description,
+			id:          id,
+			dependsOn:   dependsOn,
+		},
+		store: store,
 	}
 }
 
@@ -56,22 +54,6 @@ func (s *boolSetting) Get(userID string) (interface{}, error) {
 	}
 
 	return stringValue, nil
-}
-
-func (s *boolSetting) GetID() string {
-	return s.id
-}
-
-func (s *boolSetting) GetTitle() string {
-	return s.title
-}
-
-func (s *boolSetting) GetDescription() string {
-	return s.description
-}
-
-func (s *boolSetting) GetDependency() string {
-	return s.dependsOn
 }
 
 func (s *boolSetting) GetSlackAttachments(userID, settingHandler string, disabled bool) (*model.SlackAttachment, error) {
@@ -128,8 +110,4 @@ func (s *boolSetting) GetSlackAttachments(userID, settingHandler string, disable
 
 func (s *boolSetting) IsDisabled(foreignValue interface{}) bool {
 	return foreignValue == "false"
-}
-
-func (s *boolSetting) GetFreetextFetcher() freetext_fetcher.FreetextFetcher {
-	return nil
 }
