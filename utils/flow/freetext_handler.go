@@ -18,14 +18,14 @@ func (fc *flowController) ftOnFetch(message string, payload string) {
 		return
 	}
 
-	err = fc.store.SetProperty(ftInfo.UserID, ftInfo.Property, message)
+	err = fc.SetProperty(ftInfo.UserID, ftInfo.Property, message)
 	if err != nil {
 		fc.Logger.Errorf("cannot set free text property %s, err=%s", ftInfo.Property, err)
 		return
 	}
 
 	fc.store.RemovePostID(ftInfo.UserID, ftInfo.Property)
-	fc.flow.StepDone(ftInfo.UserID, ftInfo.Step, message)
+	fc.NextStep(ftInfo.UserID, ftInfo.Step, message)
 }
 
 func (fc *flowController) ftOnCancel(payload string) {
@@ -37,5 +37,5 @@ func (fc *flowController) ftOnCancel(payload string) {
 	}
 
 	fc.store.RemovePostID(ftInfo.UserID, ftInfo.Property)
-	fc.flow.StepDone(ftInfo.UserID, ftInfo.Step, "")
+	fc.NextStep(ftInfo.UserID, ftInfo.Step, "")
 }

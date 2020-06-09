@@ -15,23 +15,35 @@ type FlowController interface {
 	NextStep(userID string, from int, value interface{}) error
 	GetCurrentStep(userID string) (steps.Step, int, error)
 	GetHandlerURL() string
+	GetFlow() Flow
 	Cancel(userID string) error
+	SetProperty(userID, propertyName string, value interface{}) error
 }
 
 type flowController struct {
 	poster.Poster
 	logger.Logger
-	flow      Flow
-	store     FlowStore
-	pluginURL string
+	flow          Flow
+	store         FlowStore
+	propertyStore PropertyStore
+	pluginURL     string
 }
 
-func NewFlowController(p poster.Poster, l logger.Logger, pluginURL string) FlowController {
+func NewFlowController(p poster.Poster, l logger.Logger, pluginURL string, propertyStore PropertyStore) FlowController {
 	return &flowController{
-		Poster:    p,
-		Logger:    l,
-		pluginURL: pluginURL,
+		Poster:        p,
+		Logger:        l,
+		pluginURL:     pluginURL,
+		propertyStore: propertyStore,
 	}
+}
+
+func (fc *flowController) GetFlow() Flow {
+	return fc.flow
+}
+
+func (fc *flowController) SetProperty(userID, propertyName string, value interface{}) error {
+	return fc.propertyStore.SetProperty(userID, propertyName, value)
 }
 
 func (fc *flowController) RegisterFlow(flow Flow, store FlowStore) {
@@ -58,29 +70,36 @@ func (fc *flowController) Start(userID string) error {
 }
 
 func (fc *flowController) NextStep(userID string, from int, value interface{}) error {
-	step, err := fc.getFlowStep(userID)
+	stepIndex, err := fc.getFlowStep(userID)
 	if err != nil {
 		return err
 	}
 
-	if step != from {
+	if stepIndex != from {
 		return nil
 	}
 
-	skip := fc.flow.Step(step).ShouldSkip(value)
-	step += 1 + skip
-	if step > fc.flow.Length() {
+	step := fc.flow.Step(stepIndex)
+
+	err = fc.store.RemovePostID(userID, step.GetPropertyName())
+	if err != nil {
+		fc.Logger.Debugf("error removing post id, %s", err.Error())
+	}
+
+	skip := step.ShouldSkip(value)
+	stepIndex += 1 + skip
+	if stepIndex > fc.flow.Length() {
 		fc.removeFlowStep(userID)
 		fc.flow.FlowDone(userID)
 		return nil
 	}
 
-	err = fc.setFlowStep(userID, step)
+	err = fc.setFlowStep(userID, stepIndex)
 	if err != nil {
 		return err
 	}
 
-	return fc.processStep(userID, step)
+	return fc.processStep(userID, stepIndex)
 }
 
 func (fc *flowController) GetCurrentStep(userID string) (steps.Step, int, error) {

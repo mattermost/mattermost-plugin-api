@@ -15,23 +15,21 @@ import (
 )
 
 type fh struct {
-	flow  Flow
-	store FlowStore
+	fc FlowController
 }
 
-func Init(r *mux.Router, flow Flow, store FlowStore) {
+func Init(r *mux.Router, fc FlowController) {
 	fh := &fh{
-		flow:  flow,
-		store: store,
+		fc: fc,
 	}
 
 	flowRouter := r.PathPrefix("/").Subrouter()
-	flowRouter.HandleFunc(flow.URL(), fh.handleFlow).Methods(http.MethodPost)
+	flowRouter.HandleFunc(fc.GetFlow().URL(), fh.handleFlow).Methods(http.MethodPost)
 }
 
 func (fh *fh) handleFlow(w http.ResponseWriter, r *http.Request) {
-	mattermostUserID := r.Header.Get("Mattermost-User-ID")
-	if mattermostUserID == "" {
+	userID := r.Header.Get("Mattermost-User-ID")
+	if userID == "" {
 		common.SlackAttachmentError(w, "Error: Not authorized")
 		return
 	}
@@ -54,7 +52,7 @@ func (fh *fh) handleFlow(w http.ResponseWriter, r *http.Request) {
 		common.SlackAttachmentError(w, "Error: cannot parse step number")
 	}
 
-	step := fh.flow.Step(stepNumber)
+	step := fh.fc.GetFlow().Step(stepNumber)
 	if step == nil {
 		common.SlackAttachmentError(w, fmt.Sprintf("Error: There is no step %d.", step))
 		return
@@ -72,7 +70,7 @@ func (fh *fh) handleFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = fh.store.SetProperty(mattermostUserID, property, value)
+	err = fh.fc.SetProperty(userID, property, value)
 	if err != nil {
 		common.SlackAttachmentError(w, "There has been a problem setting the property, err="+err.Error())
 		return
@@ -86,6 +84,5 @@ func (fh *fh) handleFlow(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response.ToJson())
 
-	fh.store.RemovePostID(mattermostUserID, property)
-	fh.flow.StepDone(mattermostUserID, stepNumber, value)
+	fh.fc.NextStep(userID, stepNumber, value)
 }
