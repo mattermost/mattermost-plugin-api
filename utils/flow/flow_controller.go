@@ -10,7 +10,6 @@ import (
 )
 
 type FlowController interface {
-	RegisterFlow(Flow, FlowStore)
 	Start(userID string) error
 	NextStep(userID string, from int, value interface{}) error
 	GetCurrentStep(userID string) (steps.Step, int, error)
@@ -29,26 +28,15 @@ type flowController struct {
 	pluginURL     string
 }
 
-func NewFlowController(p poster.Poster, l logger.Logger, pluginURL string, propertyStore PropertyStore) FlowController {
-	return &flowController{
+func NewFlowController(p poster.Poster, l logger.Logger, pluginURL string, flow Flow, flowStore FlowStore, propertyStore PropertyStore) FlowController {
+	fc := &flowController{
 		Poster:        p,
 		Logger:        l,
-		pluginURL:     pluginURL,
+		flow:          flow,
+		store:         flowStore,
 		propertyStore: propertyStore,
+		pluginURL:     pluginURL,
 	}
-}
-
-func (fc *flowController) GetFlow() Flow {
-	return fc.flow
-}
-
-func (fc *flowController) SetProperty(userID, propertyName string, value interface{}) error {
-	return fc.propertyStore.SetProperty(userID, propertyName, value)
-}
-
-func (fc *flowController) RegisterFlow(flow Flow, store FlowStore) {
-	fc.flow = flow
-	fc.store = store
 
 	for _, step := range flow.Steps() {
 		ftf := step.GetFreetextFetcher()
@@ -59,6 +47,16 @@ func (fc *flowController) RegisterFlow(flow Flow, store FlowStore) {
 			)
 		}
 	}
+
+	return fc
+}
+
+func (fc *flowController) GetFlow() Flow {
+	return fc.flow
+}
+
+func (fc *flowController) SetProperty(userID, propertyName string, value interface{}) error {
+	return fc.propertyStore.SetProperty(userID, propertyName, value)
 }
 
 func (fc *flowController) Start(userID string) error {

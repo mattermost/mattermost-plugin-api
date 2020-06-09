@@ -15,15 +15,13 @@ type Flow interface {
 type flow struct {
 	steps      []steps.Step
 	url        string
-	controller FlowController
 	onFlowDone func(userID string)
 }
 
-func NewFlow(stepList []steps.Step, url string, fc FlowController, onFlowDone func(userID string)) Flow {
+func NewFlow(stepList []steps.Step, url string, onFlowDone func(userID string)) Flow {
 	f := &flow{
 		steps:      stepList,
 		url:        url,
-		controller: fc,
 		onFlowDone: onFlowDone,
 	}
 	return f
