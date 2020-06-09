@@ -54,7 +54,7 @@ func (fc *flowController) Start(userID string) error {
 	if err != nil {
 		return err
 	}
-	return fc.processStep(userID, fc.flow.Step(1), 1)
+	return fc.processStep(userID, 1)
 }
 
 func (fc *flowController) NextStep(userID string, from int, value interface{}) error {
@@ -80,7 +80,7 @@ func (fc *flowController) NextStep(userID string, from int, value interface{}) e
 		return err
 	}
 
-	return fc.processStep(userID, fc.flow.Step(step), step)
+	return fc.processStep(userID, step)
 }
 
 func (fc *flowController) GetCurrentStep(userID string) (steps.Step, int, error) {
@@ -141,7 +141,8 @@ func (fc *flowController) removeFlowStep(userID string) error {
 	return fc.store.DeleteCurrentStep(userID)
 }
 
-func (fc *flowController) processStep(userID string, step steps.Step, i int) error {
+func (fc *flowController) processStep(userID string, i int) error {
+	step := fc.flow.Step(i)
 	if step == nil {
 		fc.Errorf("Step nil")
 	}
