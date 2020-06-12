@@ -2,6 +2,7 @@ package pluginapi_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -193,6 +194,130 @@ func TestCompareAndDelete(t *testing.T) {
 	deleted, err := client.KV.CompareAndDelete("1", 2)
 	require.NoError(t, err)
 	assert.True(t, deleted)
+}
+
+func TestSetAtomicWithRetries(t *testing.T) {
+	tests := []struct {
+		name       string
+		key        string
+		valueFunc  func(oldValue interface{}) (newValue interface{}, err error)
+		numRetries int
+		setupAPI   func(api *plugintest.API)
+		wantErr    bool
+	}{
+		{
+			name: "Test SetAtomicWithRetries success after first attempt",
+			key:  "testNum",
+			valueFunc: func(old interface{}) (interface{}, error) {
+				return 2, nil
+			},
+			numRetries: 5,
+			setupAPI: func(api *plugintest.API) {
+				oldJSONBytes, _ := json.Marshal(1)
+				newJSONBytes, _ := json.Marshal(2)
+				api.On("KVGet", "testNum").Return(oldJSONBytes, nil)
+				api.On("KVSetWithOptions", "testNum", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(true, nil)
+			},
+		},
+		{
+			name: "Test SetAtomicWithRetries success on fourth attempt",
+			key:  "testNum",
+			valueFunc: func(old interface{}) (interface{}, error) {
+				return 2, nil
+			},
+			numRetries: 5,
+			setupAPI: func(api *plugintest.API) {
+				oldJSONBytes, _ := json.Marshal(1)
+				newJSONBytes, _ := json.Marshal(2)
+				api.On("KVGet", "testNum").Return(oldJSONBytes, nil).Times(4)
+				api.On("KVSetWithOptions", "testNum", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(false, nil).Times(3)
+				api.On("KVSetWithOptions", "testNum", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(true, nil).Once()
+			},
+		},
+		{
+			name: "Test SetAtomicWithRetries failure on get",
+			key:  "testNum",
+			valueFunc: func(old interface{}) (interface{}, error) {
+				return 2, nil
+			},
+			numRetries: 5,
+			setupAPI: func(api *plugintest.API) {
+				api.On("KVGet", "testNum").Return(nil, newAppError()).Once()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Test SetAtomicWithRetries failure on valueFunc",
+			key:  "testNum",
+			valueFunc: func(old interface{}) (interface{}, error) {
+				return nil, errors.New("some user provided error")
+			},
+			numRetries: 5,
+			setupAPI: func(api *plugintest.API) {
+				oldJSONBytes, _ := json.Marshal(1)
+				api.On("KVGet", "testNum").Return(oldJSONBytes, nil).Once()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Test SetAtomicWithRetries DB failure on set",
+			key:  "testNum",
+			valueFunc: func(old interface{}) (interface{}, error) {
+				return 2, nil
+			},
+			numRetries: 5,
+			setupAPI: func(api *plugintest.API) {
+				oldJSONBytes, _ := json.Marshal(1)
+				newJSONBytes, _ := json.Marshal(2)
+				api.On("KVGet", "testNum").Return(oldJSONBytes, nil).Once()
+				api.On("KVSetWithOptions", "testNum", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(false, newAppError()).Once()
+			},
+			wantErr: true,
+		},
+		{
+			name: "Test SetAtomicWithRetries failure on five set attempts",
+			key:  "testNum",
+			valueFunc: func(old interface{}) (interface{}, error) {
+				return 2, nil
+			},
+			numRetries: 5,
+			setupAPI: func(api *plugintest.API) {
+				oldJSONBytes, _ := json.Marshal(1)
+				newJSONBytes, _ := json.Marshal(2)
+				api.On("KVGet", "testNum").Return(oldJSONBytes, nil).Times(5)
+				api.On("KVSetWithOptions", "testNum", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(false, nil).Times(5)
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			api := &plugintest.API{}
+			defer api.AssertExpectations(t)
+			client := pluginapi.NewClient(api)
+
+			tt.setupAPI(api)
+
+			if err := client.KV.SetAtomicWithRetries(tt.key, tt.valueFunc, tt.numRetries); (err != nil) != tt.wantErr {
+				t.Errorf("SetAtomicWithRetries() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestGet(t *testing.T) {
