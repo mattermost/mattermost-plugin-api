@@ -11,6 +11,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// numRetries is the number of times the setAtomicWithRetries will retry before returning an error.
+const numRetries = 5
+
 // KVService exposes methods to read and write key-value pairs for the active plugin.
 //
 // This service cannot be used to read or write key-value pairs for other plugins.
@@ -154,7 +157,7 @@ func (k *KVService) CompareAndDelete(key string, oldValue interface{}) (bool, er
 // Returns nil if the value was set
 //
 // Minimum server version: 5.18
-func (k *KVService) SetAtomicWithRetries(key string, valueFunc func(oldValue interface{}) (newValue interface{}, err error), numRetries int) error {
+func (k *KVService) SetAtomicWithRetries(key string, valueFunc func(oldValue interface{}) (newValue interface{}, err error)) error {
 	for i := 0; i < numRetries; i++ {
 		var oldVal interface{}
 		if err := k.Get(key, &oldVal); err != nil {

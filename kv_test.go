@@ -198,12 +198,11 @@ func TestCompareAndDelete(t *testing.T) {
 
 func TestSetAtomicWithRetries(t *testing.T) {
 	tests := []struct {
-		name       string
-		key        string
-		valueFunc  func(oldValue interface{}) (newValue interface{}, err error)
-		numRetries int
-		setupAPI   func(api *plugintest.API)
-		wantErr    bool
+		name      string
+		key       string
+		valueFunc func(oldValue interface{}) (newValue interface{}, err error)
+		setupAPI  func(api *plugintest.API)
+		wantErr   bool
 	}{
 		{
 			name: "Test SetAtomicWithRetries success after first attempt",
@@ -211,7 +210,6 @@ func TestSetAtomicWithRetries(t *testing.T) {
 			valueFunc: func(old interface{}) (interface{}, error) {
 				return 2, nil
 			},
-			numRetries: 5,
 			setupAPI: func(api *plugintest.API) {
 				oldJSONBytes, _ := json.Marshal(1)
 				newJSONBytes, _ := json.Marshal(2)
@@ -228,7 +226,6 @@ func TestSetAtomicWithRetries(t *testing.T) {
 			valueFunc: func(old interface{}) (interface{}, error) {
 				return 2, nil
 			},
-			numRetries: 5,
 			setupAPI: func(api *plugintest.API) {
 				oldJSONBytes, _ := json.Marshal(1)
 				newJSONBytes, _ := json.Marshal(2)
@@ -249,7 +246,6 @@ func TestSetAtomicWithRetries(t *testing.T) {
 			valueFunc: func(old interface{}) (interface{}, error) {
 				return 2, nil
 			},
-			numRetries: 5,
 			setupAPI: func(api *plugintest.API) {
 				api.On("KVGet", "testNum").Return(nil, newAppError()).Once()
 			},
@@ -261,7 +257,6 @@ func TestSetAtomicWithRetries(t *testing.T) {
 			valueFunc: func(old interface{}) (interface{}, error) {
 				return nil, errors.New("some user provided error")
 			},
-			numRetries: 5,
 			setupAPI: func(api *plugintest.API) {
 				oldJSONBytes, _ := json.Marshal(1)
 				api.On("KVGet", "testNum").Return(oldJSONBytes, nil).Once()
@@ -274,7 +269,6 @@ func TestSetAtomicWithRetries(t *testing.T) {
 			valueFunc: func(old interface{}) (interface{}, error) {
 				return 2, nil
 			},
-			numRetries: 5,
 			setupAPI: func(api *plugintest.API) {
 				oldJSONBytes, _ := json.Marshal(1)
 				newJSONBytes, _ := json.Marshal(2)
@@ -287,12 +281,11 @@ func TestSetAtomicWithRetries(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Test SetAtomicWithRetries failure on five set attempts",
+			name: "Test SetAtomicWithRetries failure on five set attempts -- depends on numRetries constant being = 5",
 			key:  "testNum",
 			valueFunc: func(old interface{}) (interface{}, error) {
 				return 2, nil
 			},
-			numRetries: 5,
 			setupAPI: func(api *plugintest.API) {
 				oldJSONBytes, _ := json.Marshal(1)
 				newJSONBytes, _ := json.Marshal(2)
@@ -313,7 +306,7 @@ func TestSetAtomicWithRetries(t *testing.T) {
 
 			tt.setupAPI(api)
 
-			if err := client.KV.SetAtomicWithRetries(tt.key, tt.valueFunc, tt.numRetries); (err != nil) != tt.wantErr {
+			if err := client.KV.SetAtomicWithRetries(tt.key, tt.valueFunc); (err != nil) != tt.wantErr {
 				t.Errorf("SetAtomicWithRetries() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
