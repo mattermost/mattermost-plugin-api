@@ -54,6 +54,7 @@ func (fs *flowStore) GetPostID(userID, propertyName string) (string, error) {
 func (fs *flowStore) RemovePostID(userID, propertyName string) error {
 	return fs.client.KV.Delete(fs.getPostKey(userID, propertyName))
 }
+
 func (fs *flowStore) GetCurrentStep(userID string) (int, error) {
 	var step int
 	err := fs.client.KV.Get(fs.getStepKey(userID), &step)
@@ -62,6 +63,7 @@ func (fs *flowStore) GetCurrentStep(userID string) (int, error) {
 	}
 	return step, nil
 }
+
 func (fs *flowStore) SetCurrentStep(userID string, step int) error {
 	ok, err := fs.client.KV.Set(fs.getStepKey(userID), step)
 	if err != nil {
@@ -72,6 +74,7 @@ func (fs *flowStore) SetCurrentStep(userID string, step int) error {
 	}
 	return nil
 }
+
 func (fs *flowStore) DeleteCurrentStep(userID string) error {
 	return fs.client.KV.Delete(fs.getStepKey(userID))
 }

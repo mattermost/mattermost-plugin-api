@@ -17,8 +17,8 @@ type Poster interface {
 	// Ephemeral sends an ephemeral message to a user
 	Ephemeral(mattermostUserID, channelID, format string, args ...interface{})
 
-	// DMPUpdate updates the postID with the formatted message
-	DMUpdate(postID, format string, args ...interface{}) error
+	// UpdatePostByID updates the post with postID with the formatted message
+	UpdatePostByID(postID, format string, args ...interface{}) error
 
 	// DeletePost deletes a single post
 	DeletePost(postID string) error

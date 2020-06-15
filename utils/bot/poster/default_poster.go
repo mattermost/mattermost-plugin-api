@@ -63,16 +63,16 @@ func (p *defaultPoster) Ephemeral(userId, channelId, format string, args ...inte
 	_ = p.pluginAPI.SendEphemeralPost(userId, post)
 }
 
-func (p *defaultPoster) DMUpdate(postID, format string, args ...interface{}) error {
+func (p *defaultPoster) UpdatePostByID(postID, format string, args ...interface{}) error {
 	post, appErr := p.pluginAPI.GetPost(postID)
 	if appErr != nil {
 		return appErr
 	}
 
 	post.Message = fmt.Sprintf(format, args...)
-	_, appErr = p.pluginAPI.UpdatePost(post)
-	if appErr != nil {
-		return appErr
+	err := p.UpdatePost(post)
+	if err != nil {
+		return err
 	}
 
 	return nil

@@ -74,6 +74,8 @@ func (fc *flowController) NextStep(userID string, from int, value interface{}) e
 	}
 
 	if stepIndex != from {
+		// We are beyond the step we were supposed to come from, so we understand this step has already been processed.
+		// Used to avoid rapid firing on the Slack Attachments.
 		return nil
 	}
 
