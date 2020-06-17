@@ -20,10 +20,16 @@ func (g *GroupService) Get(groupID string) (*model.Group, error) {
 }
 
 // GetByName gets a group by name.
+// Because of the change to 5.24, opts is a varargs. If the caller provides an opts struct,
+// only the first will be used.
 //
 // Minimum server version: 5.24
-func (g *GroupService) GetByName(name string, opts model.GroupSearchOpts) (*model.Group, error) {
-	group, appErr := g.api.GetGroupByName(name, opts)
+func (g *GroupService) GetByName(name string, opts ...model.GroupSearchOpts) (*model.Group, error) {
+	options := model.GroupSearchOpts{}
+	if len(opts) > 0 {
+		options = opts[0]
+	}
+	group, appErr := g.api.GetGroupByName(name, options)
 
 	return group, normalizeAppErr(appErr)
 }
