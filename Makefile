@@ -35,3 +35,4 @@ mock:
 	mockgen -destination experimental/freetext_fetcher/mocks/mock_fetcher.go -package mock_freetext_fetcher github.com/mattermost/mattermost-plugin-api/experimental/freetext_fetcher FreetextFetcher
 	mockgen -destination experimental/freetext_fetcher/mocks/mock_manager.go -package mock_freetext_fetcher github.com/mattermost/mattermost-plugin-api/experimental/freetext_fetcher Manager
 	mockgen -destination experimental/freetext_fetcher/mocks/mock_store.go -package mock_freetext_fetcher github.com/mattermost/mattermost-plugin-api/experimental/freetext_fetcher FreetextStore
+	mockgen -destination experimental/oauther/mocks/mock_oauther.go -package mock_oauther github.com/mattermost/mattermost-plugin-api/experimental/oauther OAuther

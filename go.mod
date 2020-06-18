@@ -13,4 +13,5 @@ require (
 	github.com/proullon/ramsql v0.0.0-20181213202341-817cee58a244
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.5.1
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 )
