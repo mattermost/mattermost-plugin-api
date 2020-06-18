@@ -19,6 +19,7 @@ func (p *PostService) CreatePost(post *model.Post) error {
 		return normalizeAppErr(appErr)
 	}
 
+	//nolint:govet //lock value is not relevant to consumer
 	*post = *createdPost
 
 	return nil
@@ -42,6 +43,7 @@ func (p *PostService) UpdatePost(post *model.Post) error {
 		return normalizeAppErr(appErr)
 	}
 
+	//nolint:govet //lock value is not relevant to consumer
 	*post = *updatedPost
 
 	return nil
