@@ -13,58 +13,89 @@ import (
 )
 
 const (
-	oAuth2StateTimeToLive = 5 * time.Minute
+	// DefaultStorePrefix is the prefix used when storing information in the KVStore by default.
+	DefaultStorePrefix = "oauth_"
+	// DefaultOAuthURL is the url the OAuther will use to register its endpoints by default.
+	DefaultOAuthURL = "/oauth2"
+	// DefaultConnectedString is the string shown to the user when the oauth flow is completed by default.
+	DefaultConnectedString = "Successfully connected. Please close this window."
+	// DefaultOAuth2StateTimeToLive is the duration the states from the OAuth flow will live in the KVStore by default.
+	DefaultOAuth2StateTimeToLive = 5 * time.Minute
 )
 
+// OAuther defines an object able to perform the OAuth flow.
 type OAuther interface {
+	// GetToken returns the oauth token for userID, or error if it does not exist or there is any store error.
 	GetToken(userID string) (*oauth2.Token, error)
-	GetURL() string
+	// GetConnectURL returns the URL to reach in order to start the OAuth flow.
+	GetConnectURL() string
+	// Deauthorize removes the token for userID. Return error if there is any store error.
 	Deauthorize(userID string) error
 }
 
 type oAuther struct {
-	store           common.KVStore
-	onConnect       func(userID string, token *oauth2.Token)
-	storePrefix     string
-	pluginURL       string
-	oAuthURL        string
-	connectedString string
-	config          *oauth2.Config
-	logger          logger.Logger
+	pluginURL             string
+	config                *oauth2.Config
+	onConnect             func(userID string, token *oauth2.Token)
+	store                 common.KVStore
+	logger                logger.Logger
+	storePrefix           string
+	oAuthURL              string
+	connectedString       string
+	oAuth2StateTimeToLive time.Duration
 }
 
+/*NewOAuther creates a new OAuther.
+
+- pluginURL: The base url for the plugin (e.g. instance.com/plugins/pluginid).
+
+- oAuthConfig: The configuration of the Authorization flow to perform.
+
+- onConnect: What to do when the Authorization process is complete.
+
+- r *mux.Router: A router to register the http endpoints of the OAuther.
+
+- store: A KVStore to store the data of the auther.
+
+- l Logger: A logger to log errors during authorization.
+
+- options: Optional options for the oauther. Available options are StorePrefix, OAuthURL, ConnectedString and OAuth2StateTimeToLive.
+*/
 func NewOAuther(
+	pluginURL string,
+	oAuthConfig *oauth2.Config,
+	onConnect func(userID string, token *oauth2.Token),
 	r *mux.Router,
 	store common.KVStore,
-	pluginURL,
-	oAuthURL,
-	storePrefix,
-	connectedString string,
-	onConnect func(userID string, token *oauth2.Token),
-	oAuthConfig *oauth2.Config,
-	loggerBot logger.Logger,
+	l logger.Logger,
+	options ...Option,
 ) OAuther {
 	o := &oAuther{
-		store:           store,
-		onConnect:       onConnect,
-		storePrefix:     storePrefix,
-		pluginURL:       pluginURL,
-		oAuthURL:        oAuthURL,
-		config:          oAuthConfig,
-		connectedString: connectedString,
-		logger:          loggerBot,
+		pluginURL:             pluginURL,
+		config:                oAuthConfig,
+		onConnect:             onConnect,
+		store:                 store,
+		logger:                l,
+		storePrefix:           DefaultStorePrefix,
+		oAuthURL:              DefaultOAuthURL,
+		connectedString:       DefaultConnectedString,
+		oAuth2StateTimeToLive: DefaultOAuth2StateTimeToLive,
 	}
 
-	o.config.RedirectURL = pluginURL + oAuthURL + "/complete"
+	for _, option := range options {
+		option(o)
+	}
 
-	oauth2Router := r.PathPrefix(oAuthURL).Subrouter()
+	o.config.RedirectURL = o.pluginURL + o.oAuthURL + "/complete"
+
+	oauth2Router := r.PathPrefix(o.oAuthURL).Subrouter()
 	oauth2Router.HandleFunc("/connect", o.oauth2Connect).Methods("GET")
 	oauth2Router.HandleFunc("/complete", o.oauth2Complete).Methods("GET")
 
 	return o
 }
 
-func (o *oAuther) GetURL() string {
+func (o *oAuther) GetConnectURL() string {
 	return o.pluginURL + o.oAuthURL + "/connect"
 }
 

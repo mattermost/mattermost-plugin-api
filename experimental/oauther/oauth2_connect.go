@@ -20,7 +20,7 @@ func (o *oAuther) oauth2Connect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
-	err := o.store.SetWithExpiry(o.getStateKey(userID), state, oAuth2StateTimeToLive)
+	err := o.store.SetWithExpiry(o.getStateKey(userID), state, o.oAuth2StateTimeToLive)
 	if err != nil {
 		o.logger.Errorf("oauth2Connect: failed to store state, err=%s", err.Error())
 		http.Error(w, "failed to store token state", http.StatusInternalServerError)
