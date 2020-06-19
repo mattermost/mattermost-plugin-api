@@ -4,9 +4,9 @@
 package oauther
 
 import (
+	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	"github.com/mattermost/mattermost-plugin-api/experimental/common"
 	"golang.org/x/oauth2"
@@ -23,6 +23,11 @@ const (
 	DefaultOAuth2StateTimeToLive = 5 * time.Minute
 )
 
+const (
+	connectURL  = "/connect"
+	completeURL = "/complete"
+)
+
 // OAuther defines an object able to perform the OAuth flow.
 type OAuther interface {
 	// GetToken returns the oauth token for userID, or error if it does not exist or there is any store error.
@@ -31,6 +36,8 @@ type OAuther interface {
 	GetConnectURL() string
 	// Deauthorize removes the token for userID. Return error if there is any store error.
 	Deauthorize(userID string) error
+	// ServeHTTP implements http.Handler
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 type oAuther struct {
@@ -53,8 +60,6 @@ type oAuther struct {
 
 - onConnect: What to do when the Authorization process is complete.
 
-- r *mux.Router: A router to register the http endpoints of the OAuther.
-
 - store: A KVStore to store the data of the auther.
 
 - l Logger: A logger to log errors during authorization.
@@ -65,7 +70,6 @@ func NewOAuther(
 	pluginURL string,
 	oAuthConfig *oauth2.Config,
 	onConnect func(userID string, token *oauth2.Token),
-	r *mux.Router,
 	store common.KVStore,
 	l logger.Logger,
 	options ...Option,
@@ -87,10 +91,6 @@ func NewOAuther(
 	}
 
 	o.config.RedirectURL = o.pluginURL + o.oAuthURL + "/complete"
-
-	oauth2Router := r.PathPrefix(o.oAuthURL).Subrouter()
-	oauth2Router.HandleFunc("/connect", o.oauth2Connect).Methods("GET")
-	oauth2Router.HandleFunc("/complete", o.oauth2Complete).Methods("GET")
 
 	return o
 }
@@ -123,4 +123,15 @@ func (o *oAuther) Deauthorize(userID string) error {
 	}
 
 	return nil
+}
+
+func (o *oAuther) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case o.oAuthURL + connectURL:
+		o.oauth2Connect(w, r)
+	case o.oAuthURL + completeURL:
+		o.oauth2Complete(w, r)
+	default:
+		http.NotFound(w, r)
+	}
 }
