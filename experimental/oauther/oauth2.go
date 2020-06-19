@@ -4,7 +4,6 @@
 package oauther
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -44,7 +43,6 @@ func NewOAuther(
 	onConnect func(userID string, token *oauth2.Token),
 	oAuthConfig *oauth2.Config,
 	loggerBot logger.Logger,
-	test http.Handler,
 ) OAuther {
 	o := &oAuther{
 		store:           store,
