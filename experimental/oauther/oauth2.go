@@ -60,11 +60,11 @@ type oAuther struct {
 
 - onConnect: What to do when the Authorization process is complete.
 
-- store: A KVStore to store the data of the auther.
+- store: A KVStore to store the data of the OAuther.
 
 - l Logger: A logger to log errors during authorization.
 
-- options: Optional options for the oauther. Available options are StorePrefix, OAuthURL, ConnectedString and OAuth2StateTimeToLive.
+- options: Optional options for the OAuther. Available options are StorePrefix, OAuthURL, ConnectedString and OAuth2StateTimeToLive.
 */
 func NewOAuther(
 	pluginURL string,
