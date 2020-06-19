@@ -19,17 +19,10 @@ func (o *oAuther) oauth2Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, _ := o.GetToken(userID)
-	if token != nil {
-		o.logger.Debugf("oauth2Connect: reached by connected user")
-		http.Error(w, "user already has a token", http.StatusBadRequest)
-		return
-	}
-
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
-	appErr := o.api.KVSetWithExpiry(o.getStateKey(userID), []byte(state), oAuth2StateTimeToLive)
-	if appErr != nil {
-		o.logger.Errorf("oauth2Connect: failed to store state, err=%s", appErr.Error())
+	err := o.store.SetWithExpiry(o.getStateKey(userID), state, oAuth2StateTimeToLive)
+	if err != nil {
+		o.logger.Errorf("oauth2Connect: failed to store state, err=%s", err.Error())
 		http.Error(w, "failed to store token state", http.StatusInternalServerError)
 		return
 	}

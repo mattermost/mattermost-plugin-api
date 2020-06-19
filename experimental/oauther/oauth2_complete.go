@@ -5,7 +5,6 @@ package oauther
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,49 +20,50 @@ func (o *oAuther) oauth2Complete(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		o.logger.Debugf("oauth2Complete: reached with no code")
-		http.Error(w, "missing authorization code", http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 	state := r.URL.Query().Get("state")
 
-	storedState, appErr := o.api.KVGet(o.getStateKey(authedUserID))
-	if appErr != nil {
-		o.logger.Warnf("oauth2Complete: cannot get state, err=%s", appErr.Error())
-		http.Error(w, "cannot get stored state", http.StatusInternalServerError)
+	var storedState string
+	err := o.store.Get(o.getStateKey(authedUserID), storedState)
+	if err != nil {
+		o.logger.Warnf("oauth2Complete: cannot get state, err=%s", err.Error())
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	if string(storedState) != state {
+	if storedState != state {
 		o.logger.Debugf("oauth2Complete: state mismatch")
-		http.Error(w, "state does not mach", http.StatusUnauthorized)
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
 
 	userID := strings.Split(state, "_")[1]
 	if userID != authedUserID {
 		o.logger.Debugf("oauth2Complete: authed user mismatch")
-		http.Error(w, "authed user is not the same as state user", http.StatusUnauthorized)
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
 
 	ctx := context.Background()
-	tok, err := o.config.Exchange(ctx, code)
+	token, err := o.config.Exchange(ctx, code)
 	if err != nil {
 		o.logger.Warnf("oauth2Complete: could not generate token, err=%s", err.Error())
-		http.Error(w, "could not generate the token", http.StatusUnauthorized)
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
 
-	rawToken, err := json.Marshal(tok)
+	ok, err := o.store.Set(o.getTokenKey(userID), token)
 	if err != nil {
-		o.logger.Errorf("oauth2Complete: could not marshal token, err=%s", err.Error())
-		http.Error(w, "cannot marshal the token", http.StatusInternalServerError)
+		o.logger.Errorf("oauth2Complete: cannot store the token, err=%s", err.Error())
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	appErr = o.api.KVSet(o.getTokenKey(userID), rawToken)
-	if appErr != nil {
-		o.logger.Errorf("oauth2Complete: cannot store the token, err=%s", appErr.Error())
-		http.Error(w, "cannot store token", http.StatusInternalServerError)
+	if !ok {
+		o.logger.Errorf("oauth2Complete: cannot store token without error")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
 
 	html := fmt.Sprintf(`
@@ -84,6 +84,6 @@ func (o *oAuther) oauth2Complete(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html))
 
 	if o.onConnect != nil {
-		o.onConnect(userID, tok)
+		o.onConnect(userID, token)
 	}
 }

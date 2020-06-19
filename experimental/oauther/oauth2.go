@@ -4,26 +4,27 @@
 package oauther
 
 import (
-	"encoding/json"
+	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
-	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/mattermost/mattermost-plugin-api/experimental/common"
 	"golang.org/x/oauth2"
 )
 
 const (
-	oAuth2StateTimeToLive = 300 // seconds
+	oAuth2StateTimeToLive = 5 * time.Minute
 )
 
 type OAuther interface {
 	GetToken(userID string) (*oauth2.Token, error)
 	GetURL() string
-	Deauth(userID string) error
+	Deauthorize(userID string) error
 }
 
 type oAuther struct {
-	api             plugin.API
+	store           common.KVStore
 	onConnect       func(userID string, token *oauth2.Token)
 	storePrefix     string
 	pluginURL       string
@@ -35,7 +36,7 @@ type oAuther struct {
 
 func NewOAuther(
 	r *mux.Router,
-	api plugin.API,
+	store common.KVStore,
 	pluginURL,
 	oAuthURL,
 	storePrefix,
@@ -43,9 +44,10 @@ func NewOAuther(
 	onConnect func(userID string, token *oauth2.Token),
 	oAuthConfig *oauth2.Config,
 	loggerBot logger.Logger,
+	test http.Handler,
 ) OAuther {
 	o := &oAuther{
-		api:             api,
+		store:           store,
 		onConnect:       onConnect,
 		storePrefix:     storePrefix,
 		pluginURL:       pluginURL,
@@ -69,17 +71,11 @@ func (o *oAuther) GetURL() string {
 }
 
 func (o *oAuther) GetToken(userID string) (*oauth2.Token, error) {
-	rawToken, appErr := o.api.KVGet(o.getTokenKey(userID))
-	if appErr != nil {
-		return nil, appErr
-	}
-
 	var token *oauth2.Token
-	err := json.Unmarshal(rawToken, token)
+	err := o.store.Get(o.getTokenKey(userID), token)
 	if err != nil {
 		return nil, err
 	}
-
 	return token, nil
 }
 
@@ -91,8 +87,8 @@ func (o *oAuther) getStateKey(userID string) string {
 	return o.storePrefix + "state_" + userID
 }
 
-func (o *oAuther) Deauth(userID string) error {
-	err := o.api.KVDelete(o.getTokenKey(userID))
+func (o *oAuther) Deauthorize(userID string) error {
+	err := o.store.Delete(o.getTokenKey(userID))
 	if err != nil {
 		return err
 	}
