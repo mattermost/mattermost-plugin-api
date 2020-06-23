@@ -21,9 +21,9 @@ func (g *GroupService) Get(groupID string) (*model.Group, error) {
 
 // GetByName gets a group by name.
 //
-// Minimum server version: 5.24
-func (g *GroupService) GetByName(name string, opts model.GroupSearchOpts) (*model.Group, error) {
-	group, appErr := g.api.GetGroupByName(name, opts)
+// Minimum server version: 5.18
+func (g *GroupService) GetByName(name string) (*model.Group, error) {
+	group, appErr := g.api.GetGroupByName(name)
 
 	return group, normalizeAppErr(appErr)
 }
