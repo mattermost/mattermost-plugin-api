@@ -85,7 +85,7 @@ func (o *oAuther) oauth2Complete(w http.ResponseWriter, r *http.Request) {
 		`, o.connectedString)
 
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(html))
+	_, _ = w.Write([]byte(html))
 
 	if o.onConnect != nil {
 		o.onConnect(userID, token)
