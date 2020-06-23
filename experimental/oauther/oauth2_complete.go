@@ -58,6 +58,14 @@ func (o *oAuther) oauth2Complete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var payload []byte
+	err = o.store.Get(o.getPayloadKey(userID), payload)
+	if err != nil {
+		o.logger.Errorf("oauth2Complete: could not fetch payload, err=&s", err.Error())
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	ok, err := o.store.Set(o.getTokenKey(userID), token)
 	if err != nil {
 		o.logger.Errorf("oauth2Complete: cannot store the token, err=%s", err.Error())
@@ -88,6 +96,6 @@ func (o *oAuther) oauth2Complete(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html))
 
 	if o.onConnect != nil {
-		o.onConnect(userID, token)
+		o.onConnect(userID, token, payload)
 	}
 }
