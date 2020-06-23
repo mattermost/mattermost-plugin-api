@@ -19,7 +19,12 @@ func (p *PostService) CreatePost(post *model.Post) error {
 		return normalizeAppErr(appErr)
 	}
 
-	return createdPost.ShallowCopy(post)
+	err := createdPost.ShallowCopy(post)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetPost gets a post.
@@ -40,7 +45,12 @@ func (p *PostService) UpdatePost(post *model.Post) error {
 		return normalizeAppErr(appErr)
 	}
 
-	return updatedPost.ShallowCopy(post)
+	err := updatedPost.ShallowCopy(post)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // DeletePost deletes a post.
