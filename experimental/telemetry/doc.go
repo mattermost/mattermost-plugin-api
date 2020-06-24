@@ -13,6 +13,6 @@
 // MM_RUDDER_WRITE_KEY environment variable must be set also during CI
 // to the production write key ("1dP7Oi78p0PK1brYLsfslgnbD1I").
 // If you want to use your own data plane URL, add also this line and
-// make sure the MM_RUDDER_DATA_PLANE_URL variable is set.
+// make sure the MM_RUDDER_DATA_PLANE_URL environment variable is set.
 //   LDFLAGS += -X "github.com/mattermost/mattermost-plugin-api/experimental/telemetry.rudderDataPlaneURL=$(MM_RUDDER_DATA_PLANE_URL)"
 package telemetry
