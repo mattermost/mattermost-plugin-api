@@ -5,7 +5,7 @@ import "github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 // Tracker defines a telemetry tracker
 type Tracker interface {
 	// Track registers an event through the configured telemetry client
-	Track(event string, properties map[string]interface{})
+	TrackEvent(event string, properties map[string]interface{})
 	// TrackUserEvent registers an event through the configured telemetry client associated to a user
 	TrackUserEvent(event string, userID string, properties map[string]interface{})
 }
@@ -38,11 +38,12 @@ type tracker struct {
 
 // NewTracker creates a default Tracker
 // - c Client: A telemetry client. If nil, the tracker will not track any event.
-// - diagnosticID: Server unique ID used for telemetry
-// - severVersion: Mattermost server version
-// - pluginID
-// - pluginVersion
-// - telemetryShortName: Short name for the plugin to use in telemetry. Used to avoid dot separated names like com.company.pluginName
+// - diagnosticID: Server unique ID used for telemetry.
+// - severVersion: Mattermost server version.
+// - pluginID: The plugin ID.
+// - pluginVersion: The plugin version.
+// - telemetryShortName: Short name for the plugin to use in telemetry. Used to avoid dot separated names like `com.company.pluginName`.
+// If a empty string is provided, it will use the pluginID.
 // - enableDiagnostics: Whether the system has enabled sending telemetry data. If false, the tracker will not track any event.
 // - l Logger: A logger to log any error related with the telemetry tracking.
 func NewTracker(
@@ -55,6 +56,9 @@ func NewTracker(
 	enableDiagnostics bool,
 	l logger.Logger,
 ) Tracker {
+	if telemetryShortName == "" {
+		telemetryShortName = pluginID
+	}
 	return &tracker{
 		telemetryShortName: telemetryShortName,
 		client:             c,
@@ -67,7 +71,7 @@ func NewTracker(
 	}
 }
 
-func (t *tracker) Track(event string, properties map[string]interface{}) {
+func (t *tracker) TrackEvent(event string, properties map[string]interface{}) {
 	if !t.enabled || t.client == nil {
 		return
 	}
@@ -78,7 +82,7 @@ func (t *tracker) Track(event string, properties map[string]interface{}) {
 	properties["ServerVersion"] = t.serverVersion
 
 	err := t.client.Enqueue(Track{
-		UserID:     t.diagnosticID,
+		UserID:     t.diagnosticID, // We consider the server the "user" on the telemetry system. Any reference to the actual user is passed by properties.
 		Event:      event,
 		Properties: properties,
 	})
@@ -90,5 +94,5 @@ func (t *tracker) Track(event string, properties map[string]interface{}) {
 
 func (t *tracker) TrackUserEvent(event, userID string, properties map[string]interface{}) {
 	properties["UserID"] = userID
-	t.Track(event, properties)
+	t.TrackEvent(event, properties)
 }
