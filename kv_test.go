@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -200,14 +201,14 @@ func TestSetAtomicWithRetries(t *testing.T) {
 	tests := []struct {
 		name      string
 		key       string
-		valueFunc func(oldValue interface{}) (newValue interface{}, err error)
+		valueFunc func(oldValue []byte) (newValue interface{}, err error)
 		setupAPI  func(api *plugintest.API)
 		wantErr   bool
 	}{
 		{
 			name: "Test SetAtomicWithRetries success after first attempt",
 			key:  "testNum",
-			valueFunc: func(old interface{}) (interface{}, error) {
+			valueFunc: func(old []byte) (interface{}, error) {
 				return 2, nil
 			},
 			setupAPI: func(api *plugintest.API) {
@@ -221,9 +222,81 @@ func TestSetAtomicWithRetries(t *testing.T) {
 			},
 		},
 		{
+			name: "Test success after first attempt, old is struct and as expected",
+			key:  "testNum2",
+			valueFunc: func(old []byte) (interface{}, error) {
+				type toStore struct {
+					Value int
+				}
+				var fromDB toStore
+				if err := json.Unmarshal(old, &fromDB); err != nil {
+					return nil, err
+				}
+				if fromDB.Value != 1 {
+					return nil, errors.New("old not as expected")
+				}
+				return toStore{2}, nil
+			},
+			setupAPI: func(api *plugintest.API) {
+				type toStore struct {
+					Value int
+				}
+				oldJSONBytes, _ := json.Marshal(toStore{1})
+				newJSONBytes, _ := json.Marshal(toStore{2})
+				api.On("KVGet", "testNum2").Return(oldJSONBytes, nil)
+				api.On("KVSetWithOptions", "testNum2", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(true, nil)
+			},
+		},
+		{
+			name: "Test success after first attempt, old is an int value and as expected",
+			key:  "testNum2",
+			valueFunc: func(old []byte) (interface{}, error) {
+				fromDB, err := strconv.Atoi(string(old))
+				if err != nil {
+					return nil, err
+				}
+				if fromDB != 1 {
+					return nil, errors.New("old not as expected")
+				}
+				return 2, nil
+			},
+			setupAPI: func(api *plugintest.API) {
+				oldJSONBytes, _ := json.Marshal(1)
+				newJSONBytes, _ := json.Marshal(2)
+				api.On("KVGet", "testNum2").Return(oldJSONBytes, nil)
+				api.On("KVSetWithOptions", "testNum2", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(true, nil)
+			},
+		},
+		{
 			name: "Test SetAtomicWithRetries success on fourth attempt",
 			key:  "testNum",
-			valueFunc: func(old interface{}) (interface{}, error) {
+			valueFunc: func(old []byte) (interface{}, error) {
+				return 2, nil
+			},
+			setupAPI: func(api *plugintest.API) {
+				oldJSONBytes, _ := json.Marshal(1)
+				newJSONBytes, _ := json.Marshal(2)
+				api.On("KVGet", "testNum").Return(oldJSONBytes, nil).Times(4)
+				api.On("KVSetWithOptions", "testNum", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(false, nil).Times(3)
+				api.On("KVSetWithOptions", "testNum", newJSONBytes, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: oldJSONBytes,
+				}).Return(true, nil).Once()
+			},
+		},
+		{
+			name: "Test SetAtomicWithRetries success on fourth attempt because value was changed between calls to KVGet",
+			key:  "testNum",
+			valueFunc: func(old []byte) (interface{}, error) {
 				return 2, nil
 			},
 			setupAPI: func(api *plugintest.API) {
@@ -243,7 +316,7 @@ func TestSetAtomicWithRetries(t *testing.T) {
 		{
 			name: "Test SetAtomicWithRetries failure on get",
 			key:  "testNum",
-			valueFunc: func(old interface{}) (interface{}, error) {
+			valueFunc: func(old []byte) (interface{}, error) {
 				return 2, nil
 			},
 			setupAPI: func(api *plugintest.API) {
@@ -254,7 +327,7 @@ func TestSetAtomicWithRetries(t *testing.T) {
 		{
 			name: "Test SetAtomicWithRetries failure on valueFunc",
 			key:  "testNum",
-			valueFunc: func(old interface{}) (interface{}, error) {
+			valueFunc: func(old []byte) (interface{}, error) {
 				return nil, errors.New("some user provided error")
 			},
 			setupAPI: func(api *plugintest.API) {
@@ -266,7 +339,7 @@ func TestSetAtomicWithRetries(t *testing.T) {
 		{
 			name: "Test SetAtomicWithRetries DB failure on set",
 			key:  "testNum",
-			valueFunc: func(old interface{}) (interface{}, error) {
+			valueFunc: func(old []byte) (interface{}, error) {
 				return 2, nil
 			},
 			setupAPI: func(api *plugintest.API) {
@@ -283,7 +356,7 @@ func TestSetAtomicWithRetries(t *testing.T) {
 		{
 			name: "Test SetAtomicWithRetries failure on five set attempts -- depends on numRetries constant being = 5",
 			key:  "testNum",
-			valueFunc: func(old interface{}) (interface{}, error) {
+			valueFunc: func(old []byte) (interface{}, error) {
 				return 2, nil
 			},
 			setupAPI: func(api *plugintest.API) {

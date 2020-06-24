@@ -147,19 +147,25 @@ func (k *KVService) CompareAndDelete(key string, oldValue interface{}) (bool, er
 // and compare and set (comparing oldValue and setting newValue).
 //
 // Parameters:
-// `key` is the key to get and set.
-// `valueFunc` is a user-provided function that will take the old value and return the new value
-//    or an error.
-// `numRetries is the number of times the function will attempt to compare and set before failing.
 //
-// Returns err if the key could not be retrieved (DB error), valueFunc returned an error,
-//   if the key could not be set (DB error), or if the key could not be set (after retries)
-// Returns nil if the value was set
+//      `key`              is the key to get and set.
+//      `valueFunc`        is a user-provided function that will take the old value as a []byte and
+//                         return the new value or an error. If valueFunc needs to operate on
+//                         oldValue, it will need to use the oldValue as a []byte, or convert
+//                         oldValue into the expected type (e.g., by parsing it, or marshaling it
+//                         into the expected struct). It should then return the newValue as the type
+//                         expected to be stored.
+//
+// Returns:
+//
+//       Returns err if the key could not be retrieved (DB error), valueFunc returned an error,
+//               if the key could not be set (DB error), or if the key could not be set (after retries).
+//       Returns nil if the value was set.
 //
 // Minimum server version: 5.18
-func (k *KVService) SetAtomicWithRetries(key string, valueFunc func(oldValue interface{}) (newValue interface{}, err error)) error {
+func (k *KVService) SetAtomicWithRetries(key string, valueFunc func(oldValue []byte) (newValue interface{}, err error)) error {
 	for i := 0; i < numRetries; i++ {
-		var oldVal interface{}
+		var oldVal []byte
 		if err := k.Get(key, &oldVal); err != nil {
 			return errors.Wrapf(err, "failed to get value for key %s", key)
 		}
