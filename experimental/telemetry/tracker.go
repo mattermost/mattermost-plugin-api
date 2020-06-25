@@ -4,7 +4,7 @@ import "github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 
 // Tracker defines a telemetry tracker
 type Tracker interface {
-	// Track registers an event through the configured telemetry client
+	// TrackEvent registers an event through the configured telemetry client
 	TrackEvent(event string, properties map[string]interface{})
 	// TrackUserEvent registers an event through the configured telemetry client associated to a user
 	TrackUserEvent(event string, userID string, properties map[string]interface{})
