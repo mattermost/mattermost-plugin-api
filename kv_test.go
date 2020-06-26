@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -199,11 +200,12 @@ func TestCompareAndDelete(t *testing.T) {
 
 func TestSetAtomicWithRetries(t *testing.T) {
 	tests := []struct {
-		name      string
-		key       string
-		valueFunc func(oldValue []byte) (newValue interface{}, err error)
-		setupAPI  func(api *plugintest.API)
-		wantErr   bool
+		name              string
+		key               string
+		valueFunc         func(oldValue []byte) (newValue interface{}, err error)
+		setupAPI          func(api *plugintest.API)
+		wantErr           bool
+		expectedErrPrefix string
 	}{
 		{
 			name: "Test SetAtomicWithRetries success after first attempt",
@@ -317,12 +319,13 @@ func TestSetAtomicWithRetries(t *testing.T) {
 			name: "Test SetAtomicWithRetries failure on get",
 			key:  "testNum",
 			valueFunc: func(old []byte) (interface{}, error) {
-				return 2, nil
+				return nil, errors.New("should not have got here")
 			},
 			setupAPI: func(api *plugintest.API) {
 				api.On("KVGet", "testNum").Return(nil, newAppError()).Once()
 			},
-			wantErr: true,
+			wantErr:           true,
+			expectedErrPrefix: "failed to get value for key testNum",
 		},
 		{
 			name: "Test SetAtomicWithRetries failure on valueFunc",
@@ -334,7 +337,8 @@ func TestSetAtomicWithRetries(t *testing.T) {
 				oldJSONBytes, _ := json.Marshal(1)
 				api.On("KVGet", "testNum").Return(oldJSONBytes, nil).Once()
 			},
-			wantErr: true,
+			wantErr:           true,
+			expectedErrPrefix: "valueFunc failed: some user provided error",
 		},
 		{
 			name: "Test SetAtomicWithRetries DB failure on set",
@@ -351,7 +355,8 @@ func TestSetAtomicWithRetries(t *testing.T) {
 					OldValue: oldJSONBytes,
 				}).Return(false, newAppError()).Once()
 			},
-			wantErr: true,
+			wantErr:           true,
+			expectedErrPrefix: "DB failed to set value for key testNum",
 		},
 		{
 			name: "Test SetAtomicWithRetries failure on five set attempts -- depends on numRetries constant being = 5",
@@ -368,7 +373,53 @@ func TestSetAtomicWithRetries(t *testing.T) {
 					OldValue: oldJSONBytes,
 				}).Return(false, nil).Times(5)
 			},
-			wantErr: true,
+			wantErr:           true,
+			expectedErrPrefix: "failed to set value after 5 retries",
+		},
+		{
+			name: "Test SetAtomicWithRetries success after five set attempts -- depends on numRetries constant being = 5",
+			key:  "testNum",
+			valueFunc: func(old []byte) (interface{}, error) {
+				fromDB, err := strconv.Atoi(string(old))
+				if err != nil {
+					return nil, err
+				}
+				return fromDB + 1, nil
+			},
+			setupAPI: func(api *plugintest.API) {
+				i1, _ := json.Marshal(1)
+				i2, _ := json.Marshal(2)
+				i3, _ := json.Marshal(3)
+				i4, _ := json.Marshal(4)
+				i5, _ := json.Marshal(5)
+				i6, _ := json.Marshal(6)
+				api.On("KVGet", "testNum").Return(i1, nil).Once()
+				api.On("KVSetWithOptions", "testNum", i2, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: i1,
+				}).Return(false, nil).Once()
+				api.On("KVGet", "testNum").Return(i2, nil).Once()
+				api.On("KVSetWithOptions", "testNum", i3, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: i2,
+				}).Return(false, nil).Once()
+				api.On("KVGet", "testNum").Return(i3, nil).Once()
+				api.On("KVSetWithOptions", "testNum", i4, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: i3,
+				}).Return(false, nil).Once()
+				api.On("KVGet", "testNum").Return(i4, nil).Once()
+				api.On("KVSetWithOptions", "testNum", i5, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: i4,
+				}).Return(false, nil).Once()
+				api.On("KVGet", "testNum").Return(i5, nil).Once()
+				api.On("KVSetWithOptions", "testNum", i6, model.PluginKVSetOptions{
+					Atomic:   true,
+					OldValue: i5,
+				}).Return(true, nil).Once()
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -379,8 +430,14 @@ func TestSetAtomicWithRetries(t *testing.T) {
 
 			tt.setupAPI(api)
 
-			if err := client.KV.SetAtomicWithRetries(tt.key, tt.valueFunc); (err != nil) != tt.wantErr {
-				t.Errorf("SetAtomicWithRetries() error = %v, wantErr %v", err, tt.wantErr)
+			err := client.KV.SetAtomicWithRetries(tt.key, tt.valueFunc)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("SetAtomicWithRetries() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				if !strings.HasPrefix(err.Error(), tt.expectedErrPrefix) {
+					t.Errorf("SetAtomicWithRetries() error = %s, expected prefix = %s", err, tt.expectedErrPrefix)
+				}
 			}
 		})
 	}
