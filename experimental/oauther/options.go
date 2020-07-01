@@ -6,7 +6,7 @@ import "time"
 // Options functions available are OAuthURL, StorePrefix, ConnectedString and OAuth2StateTimeToLive.
 type Option func(*oAuther)
 
-// OAuthURL defines the url the OAuther will use to register its endpoints.
+// OAuthURL defines the URL the OAuther will use to register its endpoints.
 // Defaults to "/oauth2".
 func OAuthURL(url string) Option {
 	return func(o *oAuther) {
