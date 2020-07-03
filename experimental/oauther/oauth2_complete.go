@@ -92,6 +92,6 @@ func (o *oAuther) oauth2Complete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if o.onConnect != nil {
-		o.onConnect(userID, token)
+		o.onConnect(userID, *token)
 	}
 }

@@ -45,7 +45,7 @@ type OAuther interface {
 type oAuther struct {
 	pluginURL             string
 	config                oauth2.Config
-	onConnect             func(userID string, token *oauth2.Token)
+	onConnect             func(userID string, token oauth2.Token)
 	store                 common.KVStore
 	logger                logger.Logger
 	storePrefix           string
@@ -72,7 +72,7 @@ New creates a new OAuther.
 func New(
 	pluginURL string,
 	oAuthConfig oauth2.Config,
-	onConnect func(userID string, token *oauth2.Token),
+	onConnect func(userID string, token oauth2.Token),
 	store common.KVStore,
 	l logger.Logger,
 	options ...Option,
@@ -115,14 +115,13 @@ NewFromClient creates a new OAuther from the plugin api client.
 */
 func NewFromClient(
 	client *pluginapi.Client,
-	pluginID string,
 	oAuthConfig oauth2.Config,
-	onConnect func(userID string, token *oauth2.Token),
+	onConnect func(userID string, token oauth2.Token),
 	l logger.Logger,
 	options ...Option,
 ) OAuther {
 	return New(
-		common.GetPluginURL(client, pluginID),
+		common.GetPluginURL(client),
 		oAuthConfig,
 		onConnect,
 		&client.KV,
