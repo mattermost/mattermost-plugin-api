@@ -2,6 +2,7 @@ package logger
 
 type nilLogger struct{}
 
+// NewNilLogger returns a logger that performs no action.
 func NewNilLogger() Logger {
 	return &nilLogger{}
 }

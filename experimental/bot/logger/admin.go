@@ -10,6 +10,7 @@ import (
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
 )
 
+// Admin defines an object capable of recognizing admin users and DM them.
 type Admin interface {
 	IsUserAdmin(mattermostUserID string) bool
 	DMAdmins(format string, args ...interface{}) error
@@ -20,10 +21,17 @@ type defaultAdmin struct {
 	AdminUserIDs []string
 }
 
-func NewAdmin(adminUserIDs string, p poster.DMer) Admin {
+/*
+NewAdmin creates a new Admin.
+
+- p poster.DMer: DMer to use when sending direct messages to the admins.
+
+- userIDs: A list of the userIDs of the users considered admins.
+*/
+func NewAdmin(p poster.DMer, userIDs ...string) Admin {
 	return &defaultAdmin{
 		DMer:         p,
-		AdminUserIDs: strings.Split(adminUserIDs, ","),
+		AdminUserIDs: userIDs,
 	}
 }
 

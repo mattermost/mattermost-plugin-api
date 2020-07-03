@@ -3,16 +3,24 @@ package logger
 import "time"
 
 const timed = "__since"
-const Elapsed = "Elapsed"
+const elapsed = "Elapsed"
 
+// LogContext defines the context for the logs.
 type LogContext map[string]interface{}
 
+// Logger defines an object able to log messages.
 type Logger interface {
+	// With adds a logContext to the logger.
 	With(LogContext) Logger
+	// Timed add a timed log context.
 	Timed() Logger
+	// Debugf logs a formatted string as a debug message.
 	Debugf(format string, args ...interface{})
+	// Errorf logs a formatted string as an error message.
 	Errorf(format string, args ...interface{})
+	// Infof logs a formatted string as an info message.
 	Infof(format string, args ...interface{})
+	// Warnf logs a formatted string as an warning message.
 	Warnf(format string, args ...interface{})
 }
 
@@ -21,7 +29,7 @@ func measure(lc LogContext) {
 		return
 	}
 	started := lc[timed].(time.Time)
-	lc[Elapsed] = time.Since(started).String()
+	lc[elapsed] = time.Since(started).String()
 	delete(lc, timed)
 }
 
