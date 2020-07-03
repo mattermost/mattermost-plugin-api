@@ -124,5 +124,5 @@ func (l *defaultLogger) logToTelemetry(level, message string) {
 		properties["context_"+k] = fmt.Sprintf("%v", v)
 	}
 
-	l.tracker.TrackEvent("error", properties)
+	l.tracker.TrackEvent("logger_"+level, properties)
 }
