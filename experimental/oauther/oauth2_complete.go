@@ -39,6 +39,7 @@ func (o *oAuther) oauth2Complete(w http.ResponseWriter, r *http.Request) {
 
 	if storedState != state {
 		o.logger.Debugf("oauth2Complete: state mismatch")
+		o.logger.Debugf("received state '%s'; expected state '%s%", state, storedState)
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
@@ -93,9 +94,12 @@ func (o *oAuther) oauth2Complete(w http.ResponseWriter, r *http.Request) {
 		`, o.connectedString)
 
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(html))
+	_, err = w.Write([]byte(html))
+	if err != nil {
+		o.logger.Errorf("oauth2Complete: error writing response, err=%s", err.Error())
+	}
 
 	if o.onConnect != nil {
-		o.onConnect(userID, token, payload)
+		o.onConnect(userID, *token, payload)
 	}
 }

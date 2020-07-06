@@ -3,10 +3,10 @@ package oauther
 import "time"
 
 // Option defines each option that can be passed in the creation of the OAuther.
-// Options functions available are OAuthURL, StorePrefix, ConnectedString, OAuth2StateTimeToLive and PayloadTimeToLive.
+// Options functions available are OAuthURL, StorePrefix, ConnectedString and OAuth2StateTimeToLive and PayloadTimeToLive.
 type Option func(*oAuther)
 
-// OAuthURL defines the url the OAuther will use to register its endpoints.
+// OAuthURL defines the URL the OAuther will use to register its endpoints.
 // Defaults to "/oauth2".
 func OAuthURL(url string) Option {
 	return func(o *oAuther) {

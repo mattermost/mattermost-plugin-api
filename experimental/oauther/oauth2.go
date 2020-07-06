@@ -7,15 +7,17 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/oauth2"
+
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	"github.com/mattermost/mattermost-plugin-api/experimental/common"
-	"golang.org/x/oauth2"
 )
 
 const (
 	// DefaultStorePrefix is the prefix used when storing information in the KVStore by default.
 	DefaultStorePrefix = "oauth_"
-	// DefaultOAuthURL is the url the OAuther will use to register its endpoints by default.
+	// DefaultOAuthURL is the URL the OAuther will use to register its endpoints by default.
 	DefaultOAuthURL = "/oauth2"
 	// DefaultConnectedString is the string shown to the user when the oauth flow is completed by default.
 	DefaultConnectedString = "Successfully connected. Please close this window."
@@ -46,8 +48,8 @@ type OAuther interface {
 
 type oAuther struct {
 	pluginURL             string
-	config                *oauth2.Config
-	onConnect             func(userID string, token *oauth2.Token, payload []byte)
+	config                oauth2.Config
+	onConnect             func(userID string, token oauth2.Token, payload []byte)
 	store                 common.KVStore
 	logger                logger.Logger
 	storePrefix           string
@@ -57,9 +59,9 @@ type oAuther struct {
 	payloadTimeToLive     time.Duration
 }
 
-/*NewOAuther creates a new OAuther.
+/*New creates a new OAuther.
 
-- pluginURL: The base url for the plugin (e.g. instance.com/plugins/pluginid).
+- pluginURL: The base URL for the plugin (e.g. https://www.instance.com/plugins/pluginid).
 
 - oAuthConfig: The configuration of the Authorization flow to perform.
 
@@ -69,12 +71,12 @@ type oAuther struct {
 
 - l Logger: A logger to log errors during authorization.
 
-- options: Optional options for the OAuther. Available options are StorePrefix, OAuthURL, ConnectedString, OAuth2StateTimeToLive and PayloadTimeToLive.
+- options: Optional options for the OAuther. Available options are StorePrefix, OAuthURL, ConnectedString and OAuth2StateTimeToLive.
 */
-func NewOAuther(
+func New(
 	pluginURL string,
-	oAuthConfig *oauth2.Config,
-	onConnect func(userID string, token *oauth2.Token, payload []byte),
+	oAuthConfig oauth2.Config,
+	onConnect func(userID string, token oauth2.Token, payload []byte),
 	store common.KVStore,
 	l logger.Logger,
 	options ...Option,
@@ -99,6 +101,38 @@ func NewOAuther(
 	o.config.RedirectURL = o.pluginURL + o.oAuthURL + "/complete"
 
 	return o
+}
+
+/*
+NewFromClient creates a new OAuther from the plugin api client.
+
+- pluginapi: A plugin api client.
+
+- pluginID: The plugin ID.
+
+- oAuthConfig: The configuration of the Authorization flow to perform.
+
+- onConnect: What to do when the Authorization process is complete.
+
+- l Logger: A logger to log errors during authorization.
+
+- options: Optional options for the OAuther. Available options are StorePrefix, OAuthURL, ConnectedString and OAuth2StateTimeToLive.
+*/
+func NewFromClient(
+	client *pluginapi.Client,
+	oAuthConfig oauth2.Config,
+	onConnect func(userID string, token oauth2.Token, payload []byte),
+	l logger.Logger,
+	options ...Option,
+) OAuther {
+	return New(
+		common.GetPluginURL(client),
+		oAuthConfig,
+		onConnect,
+		&client.KV,
+		l,
+		options...,
+	)
 }
 
 func (o *oAuther) GetConnectURL() string {

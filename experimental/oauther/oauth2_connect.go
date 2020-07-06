@@ -9,6 +9,8 @@ import (
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"golang.org/x/oauth2"
+
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
 )
 
 func (o *oAuther) oauth2Connect(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +26,7 @@ func (o *oAuther) oauth2Connect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
-	err := o.store.SetWithExpiry(o.getStateKey(userID), state, o.oAuth2StateTimeToLive)
+	_, err := o.store.Set(o.getStateKey(userID), state, pluginapi.SetExpiry(o.oAuth2StateTimeToLive))
 	if err != nil {
 		o.logger.Errorf("oauth2Connect: failed to store state, err=%s", err.Error())
 		http.Error(w, "failed to store token state", http.StatusInternalServerError)
