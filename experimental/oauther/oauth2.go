@@ -181,7 +181,7 @@ func (o *oAuther) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *oAuther) AddPayload(userID string, payload []byte) error {
-	err := o.store.SetWithExpiry(o.getPayloadKey(userID), payload, o.oAuth2StateTimeToLive)
+	_, err := o.store.Set(o.getPayloadKey(userID), payload, pluginapi.SetExpiry(o.payloadTimeToLive))
 	if err != nil {
 		return err
 	}
