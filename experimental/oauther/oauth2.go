@@ -59,7 +59,8 @@ type oAuther struct {
 	payloadTimeToLive     time.Duration
 }
 
-/*New creates a new OAuther.
+/*
+New creates a new OAuther.
 
 - pluginURL: The base URL for the plugin (e.g. https://www.instance.com/plugins/pluginid).
 
