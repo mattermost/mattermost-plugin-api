@@ -6,13 +6,13 @@ package logger
 // Config contains all configuration needed by the logger.
 type Config struct {
 	// AdminLogLevel is "debug", "info", "warn", or "error".
-	AdminLogLevel string
+	AdminLogLevel LogLevel
 
 	// AdminLogVerbose: set to include full context with admin log messages.
 	AdminLogVerbose bool
 
 	// TelemetryLogLevel is "debug", "info", "warn", or "error".
-	TelemetryLogLevel string
+	TelemetryLogLevel LogLevel
 }
 
 // ToStorableConfig merge the configuration with the provided configMap.

@@ -5,6 +5,20 @@ import "time"
 const timed = "__since"
 const elapsed = "Elapsed"
 
+// LogLevel defines the level of log messages
+type LogLevel string
+
+const (
+	// LogLevelDebug denotes debug messages
+	LogLevelDebug = "debug"
+	// LogLevelInfo denotes info messages
+	LogLevelInfo = "info"
+	// LogLevelWarn denotes warn messages
+	LogLevelWarn = "warn"
+	// LogLevelError denotes error messages
+	LogLevelError = "error"
+)
+
 // LogContext defines the context for the logs.
 type LogContext map[string]interface{}
 
@@ -33,15 +47,15 @@ func measure(lc LogContext) {
 	delete(lc, timed)
 }
 
-func level(l string) int {
+func level(l LogLevel) int {
 	switch l {
-	case "debug":
+	case LogLevelDebug:
 		return 4
-	case "info":
+	case LogLevelInfo:
 		return 3
-	case "warn":
+	case LogLevelWarn:
 		return 2
-	case "error":
+	case LogLevelError:
 		return 1
 	}
 	return 0

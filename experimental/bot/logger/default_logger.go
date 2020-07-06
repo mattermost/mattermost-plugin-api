@@ -25,6 +25,15 @@ New creates a new logger.
 - api: LogAPI implementation
 
 - options: Optional parameters for the Logger. Available options are MessageToAdmins and LogToTelemetry.
+
+Example:
+  client := pluginapi.NewClient(p.api)
+  dmer := poster.New(...)
+  tracker := telemetry.NewTracker(...)
+  logger := New(client,
+	MessageToAdmins(LogLevelWarn, false, dmer, "000000000000000", "0000000010000"),
+	LogToTelemetry(LogLevelDebug, tracker),
+  )
 */
 func New(api common.LogAPI, options ...Option) Logger {
 	l := &defaultLogger{
