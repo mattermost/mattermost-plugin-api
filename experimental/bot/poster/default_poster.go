@@ -3,19 +3,22 @@ package poster
 import (
 	"fmt"
 
+	"github.com/mattermost/mattermost-plugin-api/experimental/common"
 	"github.com/mattermost/mattermost-server/v5/model"
-	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/pkg/errors"
 )
 
 type defaultPoster struct {
-	pluginAPI plugin.API
-	id        string
+	common.PostAPI
+	common.ChannelAPI
+	id string
 }
 
-func NewPoster(api plugin.API, id string) Poster {
+func NewPoster(postAPI common.PostAPI, channelAPI common.ChannelAPI, id string) Poster {
 	return &defaultPoster{
-		pluginAPI: api,
-		id:        id,
+		PostAPI:    postAPI,
+		ChannelAPI: channelAPI,
+		id:         id,
 	}
 }
 
@@ -39,18 +42,17 @@ func (p *defaultPoster) DMWithAttachments(mattermostUserID string, attachments .
 }
 
 func (p *defaultPoster) dm(mattermostUserID string, post *model.Post) (string, error) {
-	channel, err := p.pluginAPI.GetDirectChannel(mattermostUserID, p.id)
+	channel, err := p.GetDirect(mattermostUserID, p.id)
 	if err != nil {
-		p.pluginAPI.LogInfo("Couldn't get bot's DM channel", "user_id", mattermostUserID)
-		return "", err
+		return "", errors.Wrap(err, "couldn't get bot's DM channel")
 	}
 	post.ChannelId = channel.Id
 	post.UserId = p.id
-	sentPost, err := p.pluginAPI.CreatePost(post)
+	err = p.CreatePost(post)
 	if err != nil {
 		return "", err
 	}
-	return sentPost.Id, nil
+	return post.Id, nil
 }
 
 // Ephemeral sends an ephemeral message to a user
@@ -60,38 +62,25 @@ func (p *defaultPoster) Ephemeral(userID, channelID, format string, args ...inte
 		ChannelId: channelID,
 		Message:   fmt.Sprintf(format, args...),
 	}
-	_ = p.pluginAPI.SendEphemeralPost(userID, post)
+	p.SendEphemeralPost(userID, post)
 }
 
 func (p *defaultPoster) UpdatePostByID(postID, format string, args ...interface{}) error {
-	post, appErr := p.pluginAPI.GetPost(postID)
-	if appErr != nil {
-		return appErr
-	}
-
-	post.Message = fmt.Sprintf(format, args...)
-	err := p.UpdatePost(post)
+	post, err := p.GetPost(postID)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	post.Message = fmt.Sprintf(format, args...)
+	return p.UpdatePost(post)
 }
 
 func (p *defaultPoster) DeletePost(postID string) error {
-	appErr := p.pluginAPI.DeletePost(postID)
-	if appErr != nil {
-		return appErr
-	}
-	return nil
+	return p.DeletePost(postID)
 }
 
 func (p *defaultPoster) UpdatePost(post *model.Post) error {
-	_, appErr := p.pluginAPI.UpdatePost(post)
-	if appErr != nil {
-		return appErr
-	}
-	return nil
+	return p.UpdatePost(post)
 }
 
 func (p *defaultPoster) UpdatePosterID(id string) {
