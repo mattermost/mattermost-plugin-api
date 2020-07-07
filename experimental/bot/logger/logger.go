@@ -26,6 +26,8 @@ type LogContext map[string]interface{}
 type Logger interface {
 	// With adds a logContext to the logger.
 	With(LogContext) Logger
+	// Context returns the current context
+	Context() LogContext
 	// Timed add a timed log context.
 	Timed() Logger
 	// Debugf logs a formatted string as a debug message.
@@ -47,7 +49,8 @@ func measure(lc LogContext) {
 	delete(lc, timed)
 }
 
-func level(l LogLevel) int {
+// Level assigns an integer to the LogLevel string
+func Level(l LogLevel) int {
 	switch l {
 	case LogLevelDebug:
 		return 4

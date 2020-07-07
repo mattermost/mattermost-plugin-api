@@ -27,6 +27,10 @@ func (l *testLogger) With(logContext LogContext) Logger {
 	return &newl
 }
 
+func (l *testLogger) Context() LogContext {
+	return l.logContext
+}
+
 func (l *testLogger) Timed() Logger {
 	return l.With(LogContext{
 		timed: time.Now(),
