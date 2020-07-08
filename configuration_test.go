@@ -1,14 +1,14 @@
 package pluginapi
 
 import (
+	"testing"
+
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin/plugintest"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestConfigurationService_GetConfig(t *testing.T) {
-
 	t.Run("success - set defaults in config", func(t *testing.T) {
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
@@ -23,11 +23,9 @@ func TestConfigurationService_GetConfig(t *testing.T) {
 
 		require.Equal(t, defaultConfig, cfg)
 	})
-
 }
 
 func TestConfigurationService_GetUnsanitizedConfig(t *testing.T) {
-
 	t.Run("success - set defaults in unsanitized config", func(t *testing.T) {
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
@@ -42,5 +40,4 @@ func TestConfigurationService_GetUnsanitizedConfig(t *testing.T) {
 
 		require.Equal(t, defaultConfig, cfg)
 	})
-
 }
