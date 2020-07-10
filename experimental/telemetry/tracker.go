@@ -94,6 +94,6 @@ func (t *tracker) TrackEvent(event string, properties map[string]interface{}) er
 }
 
 func (t *tracker) TrackUserEvent(event, userID string, properties map[string]interface{}) error {
-	properties["UserID"] = userID
+	properties["UserActualID"] = userID
 	return t.TrackEvent(event, properties)
 }
