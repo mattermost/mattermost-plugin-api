@@ -41,7 +41,7 @@ func New(l logger.Logger, dmer poster.DMer, logLevel logger.LogLevel, includeCon
 	}
 }
 
-//NewFromAPI creates a adminCCLogger directly from a LogAPI instead of passing a logger.
+// NewFromAPI creates a adminCCLogger directly from a LogAPI instead of passing a logger.
 func NewFromAPI(api common.LogAPI, dmer poster.DMer, logLevel logger.LogLevel, includeContext bool, userIDs ...string) logger.Logger {
 	return New(logger.New(api), dmer, logLevel, includeContext, userIDs...)
 }
