@@ -10,10 +10,10 @@ import (
 
 type adminCCLogger struct {
 	logger.Logger
-	dmer       poster.DMer
-	logLevel   logger.LogLevel
-	logVerbose bool
-	userIDs    []string
+	dmer           poster.DMer
+	logLevel       logger.LogLevel
+	includeContext bool
+	userIDs        []string
 }
 
 /*
@@ -27,18 +27,23 @@ it will also send the context.
 
 - logLevel: The highest type of message to be stored in telemetry.
 
-- logVerbose: Whether the log context should be messaged to the admins.
+- includeContext: Whether the log context should be messaged to the admins.
 
 - userIDs: The user IDs of the admins.
 */
-func New(l logger.Logger, dmer poster.DMer, logLevel logger.LogLevel, logVerbose bool, userIDs ...string) logger.Logger {
+func New(l logger.Logger, dmer poster.DMer, logLevel logger.LogLevel, includeContext bool, userIDs ...string) logger.Logger {
 	return &adminCCLogger{
-		Logger:     l,
-		dmer:       dmer,
-		logLevel:   logLevel,
-		logVerbose: logVerbose,
-		userIDs:    userIDs,
+		Logger:         l,
+		dmer:           dmer,
+		logLevel:       logLevel,
+		includeContext: includeContext,
+		userIDs:        userIDs,
 	}
+}
+
+//NewFromAPI creates a adminCCLogger directly from a LogAPI instead of passing a logger.
+func NewFromAPI(api common.LogAPI, dmer poster.DMer, logLevel logger.LogLevel, includeContext bool, userIDs ...string) logger.Logger {
+	return New(logger.New(api), dmer, logLevel, includeContext, userIDs...)
 }
 
 func (l *adminCCLogger) Debugf(format string, args ...interface{}) {
@@ -75,7 +80,7 @@ func (l *adminCCLogger) Warnf(format string, args ...interface{}) {
 
 func (l *adminCCLogger) logToAdmins(level, message string) {
 	context := l.Context()
-	if l.logVerbose && len(context) > 0 {
+	if l.includeContext && len(context) > 0 {
 		message += "\n" + common.JSONBlock(context)
 	}
 	_ = l.dmAdmins("(log " + level + ") " + message)

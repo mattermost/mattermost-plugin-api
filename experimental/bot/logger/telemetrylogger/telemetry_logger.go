@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
+	"github.com/mattermost/mattermost-plugin-api/experimental/common"
 	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
 )
 
@@ -29,6 +30,11 @@ func New(l logger.Logger, logLevel logger.LogLevel, tracker telemetry.Tracker) l
 		logLevel: logLevel,
 		tracker:  tracker,
 	}
+}
+
+// NewFromAPI creates a telemetryLogger directly from a LogAPI instead of passing a logger.
+func NewFromAPI(api common.LogAPI, logLevel logger.LogLevel, tracker telemetry.Tracker) logger.Logger {
+	return New(logger.New(api), logLevel, tracker)
 }
 
 func (l *telemetryLogger) Debugf(format string, args ...interface{}) {
