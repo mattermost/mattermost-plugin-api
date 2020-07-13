@@ -3,21 +3,22 @@ package poster
 import (
 	"fmt"
 
-	"github.com/mattermost/mattermost-plugin-api/experimental/common"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-plugin-api/experimental/common"
 )
 
 type defaultPoster struct {
-	common.PostAPI
-	common.ChannelAPI
-	id string
+	postAPI    common.PostAPI
+	channelAPI common.ChannelAPI
+	id         string
 }
 
 func NewPoster(postAPI common.PostAPI, channelAPI common.ChannelAPI, id string) Poster {
 	return &defaultPoster{
-		PostAPI:    postAPI,
-		ChannelAPI: channelAPI,
+		postAPI:    postAPI,
+		channelAPI: channelAPI,
 		id:         id,
 	}
 }
@@ -42,13 +43,13 @@ func (p *defaultPoster) DMWithAttachments(mattermostUserID string, attachments .
 }
 
 func (p *defaultPoster) dm(mattermostUserID string, post *model.Post) (string, error) {
-	channel, err := p.GetDirect(mattermostUserID, p.id)
+	channel, err := p.channelAPI.GetDirect(mattermostUserID, p.id)
 	if err != nil {
 		return "", errors.Wrap(err, "couldn't get bot's DM channel")
 	}
 	post.ChannelId = channel.Id
 	post.UserId = p.id
-	err = p.CreatePost(post)
+	err = p.postAPI.CreatePost(post)
 	if err != nil {
 		return "", err
 	}
@@ -62,11 +63,11 @@ func (p *defaultPoster) Ephemeral(userID, channelID, format string, args ...inte
 		ChannelId: channelID,
 		Message:   fmt.Sprintf(format, args...),
 	}
-	p.SendEphemeralPost(userID, post)
+	p.postAPI.SendEphemeralPost(userID, post)
 }
 
 func (p *defaultPoster) UpdatePostByID(postID, format string, args ...interface{}) error {
-	post, err := p.GetPost(postID)
+	post, err := p.postAPI.GetPost(postID)
 	if err != nil {
 		return err
 	}
@@ -76,11 +77,11 @@ func (p *defaultPoster) UpdatePostByID(postID, format string, args ...interface{
 }
 
 func (p *defaultPoster) DeletePost(postID string) error {
-	return p.DeletePost(postID)
+	return p.postAPI.DeletePost(postID)
 }
 
 func (p *defaultPoster) UpdatePost(post *model.Post) error {
-	return p.UpdatePost(post)
+	return p.postAPI.UpdatePost(post)
 }
 
 func (p *defaultPoster) UpdatePosterID(id string) {

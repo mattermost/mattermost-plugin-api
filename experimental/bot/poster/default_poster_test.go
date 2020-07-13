@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/experimental/common/mock_api"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
+
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
+	"github.com/mattermost/mattermost-plugin-api/experimental/common/mock_api"
 )
 
 const (
@@ -67,6 +68,7 @@ func TestDM(t *testing.T) {
 			Return(channel, nil).
 			Times(1)
 
+		//nolint:govet //copy lock, but only used in tests
 		postAPI.
 			EXPECT().
 			CreatePost(post).
@@ -169,6 +171,7 @@ func TestDMWithAttachments(t *testing.T) {
 			Return(channel, nil).
 			Times(1)
 
+		//nolint:copylocks //only used in tests
 		postAPI.
 			EXPECT().
 			CreatePost(post).
