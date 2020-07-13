@@ -31,12 +31,12 @@ func (p *PostService) CreatePost(post *model.Post) error {
 //
 // Minimum server version: 5.2
 func (p *PostService) DM(senderUserID, receiverUserID string, post *model.Post) error {
-	channel, appErr := p.api.GetDirectChannel(senderID, receiverID)
+	channel, appErr := p.api.GetDirectChannel(senderUserID, receiverUserID)
 	if appErr != nil {
-		return "", normalizeAppErr(appErr)
+		return normalizeAppErr(appErr)
 	}
 	post.ChannelId = channel.Id
-	post.UserId = senderID
+	post.UserId = senderUserID
 	return p.CreatePost(post)
 }
 
