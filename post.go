@@ -30,18 +30,14 @@ func (p *PostService) CreatePost(post *model.Post) error {
 // DM sends a post as a direct message
 //
 // Minimum server version: 5.2
-func (p *PostService) DM(senderID, receiverID string, post *model.Post) (string, error) {
+func (p *PostService) DM(senderUserID, receiverUserID string, post *model.Post) error {
 	channel, appErr := p.api.GetDirectChannel(senderID, receiverID)
 	if appErr != nil {
 		return "", normalizeAppErr(appErr)
 	}
 	post.ChannelId = channel.Id
 	post.UserId = senderID
-	sentPost, appErr := p.api.CreatePost(post)
-	if appErr != nil {
-		return "", normalizeAppErr(appErr)
-	}
-	return sentPost.Id, nil
+	return p.CreatePost(post)
 }
 
 // GetPost gets a post.
