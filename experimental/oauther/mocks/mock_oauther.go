@@ -34,6 +34,20 @@ func (m *MockOAuther) EXPECT() *MockOAutherMockRecorder {
 	return m.recorder
 }
 
+// AddPayload mocks base method
+func (m *MockOAuther) AddPayload(arg0 string, arg1 []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddPayload", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddPayload indicates an expected call of AddPayload
+func (mr *MockOAutherMockRecorder) AddPayload(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPayload", reflect.TypeOf((*MockOAuther)(nil).AddPayload), arg0, arg1)
+}
+
 // Deauthorize mocks base method
 func (m *MockOAuther) Deauthorize(arg0 string) error {
 	m.ctrl.T.Helper()
