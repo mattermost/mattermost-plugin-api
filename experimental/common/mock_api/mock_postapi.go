@@ -33,18 +33,18 @@ func (m *MockPostAPI) EXPECT() *MockPostAPIMockRecorder {
 	return m.recorder
 }
 
-// CreatePost mocks base method
-func (m *MockPostAPI) CreatePost(arg0 *model.Post) error {
+// DM mocks base method
+func (m *MockPostAPI) DM(arg0, arg1 string, arg2 *model.Post) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreatePost", arg0)
+	ret := m.ctrl.Call(m, "DM", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreatePost indicates an expected call of CreatePost
-func (mr *MockPostAPIMockRecorder) CreatePost(arg0 interface{}) *gomock.Call {
+// DM indicates an expected call of DM
+func (mr *MockPostAPIMockRecorder) DM(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePost", reflect.TypeOf((*MockPostAPI)(nil).CreatePost), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DM", reflect.TypeOf((*MockPostAPI)(nil).DM), arg0, arg1, arg2)
 }
 
 // DeletePost mocks base method

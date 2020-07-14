@@ -4,34 +4,33 @@ import (
 	"fmt"
 
 	"github.com/mattermost/mattermost-server/v5/model"
-	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/common"
 )
 
 type defaultPoster struct {
-	postAPI    common.PostAPI
-	channelAPI common.ChannelAPI
-	id         string
+	postAPI common.PostAPI
+	id      string
 }
 
-func NewPoster(postAPI common.PostAPI, channelAPI common.ChannelAPI, id string) Poster {
+// NewPoster creates a new default poster
+func NewPoster(postAPI common.PostAPI, id string) Poster {
 	return &defaultPoster{
-		postAPI:    postAPI,
-		channelAPI: channelAPI,
-		id:         id,
+		postAPI: postAPI,
+		id:      id,
 	}
 }
 
 // DM posts a simple Direct Message to the specified user
 func (p *defaultPoster) DM(mattermostUserID, format string, args ...interface{}) (string, error) {
-	postID, err := p.dm(mattermostUserID, &model.Post{
+	post := &model.Post{
 		Message: fmt.Sprintf(format, args...),
-	})
+	}
+	err := p.postAPI.DM(p.id, mattermostUserID, post)
 	if err != nil {
 		return "", err
 	}
-	return postID, nil
+	return post.Id, nil
 }
 
 // DMWithAttachments posts a Direct Message that contains Slack attachments.
@@ -39,17 +38,7 @@ func (p *defaultPoster) DM(mattermostUserID, format string, args ...interface{})
 func (p *defaultPoster) DMWithAttachments(mattermostUserID string, attachments ...*model.SlackAttachment) (string, error) {
 	post := model.Post{}
 	model.ParseSlackAttachment(&post, attachments)
-	return p.dm(mattermostUserID, &post)
-}
-
-func (p *defaultPoster) dm(mattermostUserID string, post *model.Post) (string, error) {
-	channel, err := p.channelAPI.GetDirect(mattermostUserID, p.id)
-	if err != nil {
-		return "", errors.Wrap(err, "couldn't get bot's DM channel")
-	}
-	post.ChannelId = channel.Id
-	post.UserId = p.id
-	err = p.postAPI.CreatePost(post)
+	err := p.postAPI.DM(p.id, mattermostUserID, &post)
 	if err != nil {
 		return "", err
 	}
