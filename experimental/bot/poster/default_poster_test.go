@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/experimental/common/mock_api"
+	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster/mock_import"
 )
 
 const (
@@ -51,7 +51,7 @@ func TestDM(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -72,7 +72,7 @@ func TestDM(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -114,7 +114,7 @@ func TestDMWithAttachments(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -135,7 +135,7 @@ func TestDMWithAttachments(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -176,7 +176,7 @@ func TestEphemeral(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -213,7 +213,7 @@ func TestUpdatePostByID(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -237,7 +237,7 @@ func TestUpdatePostByID(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -255,7 +255,7 @@ func TestUpdatePostByID(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -284,7 +284,7 @@ func TestDeletePost(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -302,7 +302,7 @@ func TestDeletePost(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -328,7 +328,7 @@ func TestUpdatePost(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -346,7 +346,7 @@ func TestUpdatePost(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
@@ -385,7 +385,7 @@ func TestUpdatePosterID(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		postAPI := mock_api.NewMockPostAPI(ctrl)
+		postAPI := mock_import.NewMockPostAPI(ctrl)
 
 		poster := NewPoster(postAPI, botID)
 
