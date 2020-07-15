@@ -4,17 +4,15 @@ import (
 	"fmt"
 
 	"github.com/mattermost/mattermost-server/v5/model"
-
-	"github.com/mattermost/mattermost-plugin-api/experimental/common"
 )
 
 type defaultPoster struct {
-	postAPI common.PostAPI
+	postAPI PostAPI
 	id      string
 }
 
 // NewPoster creates a new default poster
-func NewPoster(postAPI common.PostAPI, id string) Poster {
+func NewPoster(postAPI PostAPI, id string) Poster {
 	return &defaultPoster{
 		postAPI: postAPI,
 		id:      id,
