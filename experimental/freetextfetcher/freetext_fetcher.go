@@ -147,12 +147,12 @@ func (ftf *freetextFetcher) postConfirmation(userID, message, pluginURL, payload
 	}
 
 	title := "Confirm input"
-	text := fmt.Sprintf("You have typed `%s`. Is that correct?", message),
+	text := fmt.Sprintf("You have typed `%s`. Is that correct?", message)
 	sa := &model.SlackAttachment{
-		Title:   title,
-		Text:    text,
+		Title:    title,
+		Text:     text,
 		Fallback: fmt.Sprintf("%s: %s", title, text),
-		Actions: []*model.PostAction{&actionConfirm, &actionRetry, &actionCancel},
+		Actions:  []*model.PostAction{&actionConfirm, &actionRetry, &actionCancel},
 	}
 
 	_, _ = ftf.poster.DMWithAttachments(userID, sa)
