@@ -11,6 +11,7 @@ import (
 	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
+// FreetextFetcher defines the behavior of free text fetchers
 type FreetextFetcher interface {
 	MessageHasBeenPosted(c *plugin.Context, post *model.Post, api plugin.API, l logger.Logger, botUserID string, pluginURL string)
 	StartFetching(userID string, payload string)
@@ -28,6 +29,7 @@ type freetextFetcher struct {
 	onCancel func(string)
 }
 
+// NewFreetextFetcher creates a new FreetextFetcher
 func NewFreetextFetcher(
 	baseURL string,
 	store FreetextStore,

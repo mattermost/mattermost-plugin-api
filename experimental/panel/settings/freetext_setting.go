@@ -20,13 +20,13 @@ type freetextSetting struct {
 	ftf           freetextfetcher.FreetextFetcher
 }
 
-//FreetextInfo defines the information needed in the payload for freetext settings
+// FreetextInfo defines the information needed in the payload for freetext settings
 type FreetextInfo struct {
 	SettingID string
 	UserID    string
 }
 
-//NewFreetextSetting creates a new setting input to add any text
+// NewFreetextSetting creates a new setting input to add any text
 func NewFreetextSetting(
 	id,
 	title,
