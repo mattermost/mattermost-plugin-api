@@ -15,7 +15,7 @@ const (
 	ContextActionKey = "id"
 	// ContextMessageKey defines the key used in the context to store the message
 	ContextMessageKey = "message"
-	// ContextPayloadKey defines the key used in the context to store the Payload
+	// ContextPayloadKey defines the key used in the context to store the payload
 	ContextPayloadKey = "payload"
 
 	// ContextNewMessage defines the key used in the context to store the new message
