@@ -27,7 +27,8 @@
 // 2. Init and update the tracker on configuration change
 //  func (p *Plugin) OnConfigurationChange() error {
 //    ...
-//    p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id, manifest.Version, "pluginName", enableDiagnostics, logger)
+//    p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id,
+//      manifest.Version, "pluginName", enableDiagnostics, logger)
 //    return nil
 //  }
 // 3. Close the client on plugin deactivate:
