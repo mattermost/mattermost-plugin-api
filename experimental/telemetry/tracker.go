@@ -1,6 +1,9 @@
 package telemetry
 
 import (
+	"encoding/json"
+	"net/http"
+
 	"github.com/pkg/errors"
 )
 
@@ -104,4 +107,29 @@ func (t *tracker) TrackUserEvent(event, userID string, properties map[string]int
 
 	properties["UserActualID"] = userID
 	return t.TrackEvent(event, properties)
+}
+
+type telemetryAPIRequest struct {
+	Event      string
+	Properties map[string]interface{}
+}
+
+func (t *tracker) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("Mattermost-User-ID")
+	if userID == "" {
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	var telemetryRequest *telemetryAPIRequest
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&telemetryRequest)
+	if err != nil {
+		http.Error(w, "Unable to decode JSON", http.StatusBadRequest)
+		return
+	}
+
+	if telemetryRequest.Event != "" {
+		t.TrackUserEvent(telemetryRequest.Event, userID, telemetryRequest.Properties)
+	}
 }
