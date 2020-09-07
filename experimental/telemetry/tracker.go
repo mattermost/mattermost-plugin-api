@@ -130,6 +130,6 @@ func (t *tracker) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if telemetryRequest.Event != "" {
-		t.TrackUserEvent(telemetryRequest.Event, userID, telemetryRequest.Properties)
+		_ = t.TrackUserEvent(telemetryRequest.Event, userID, telemetryRequest.Properties)
 	}
 }
