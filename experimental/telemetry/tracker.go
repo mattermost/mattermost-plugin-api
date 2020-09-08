@@ -122,8 +122,7 @@ func (t *tracker) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var telemetryRequest *telemetryAPIRequest
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&telemetryRequest)
+	err := json.NewDecoder(r.Body).Decode(&telemetryRequest)
 	if err != nil {
 		http.Error(w, "Unable to decode JSON", http.StatusBadRequest)
 		return
