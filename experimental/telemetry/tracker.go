@@ -126,7 +126,10 @@ func (t *tracker) HandleClientEvent(r *http.Request) error {
 	}
 
 	if telemetryRequest.Event != "" {
-		_ = t.TrackUserEvent(telemetryRequest.Event, userID, telemetryRequest.Properties)
+		err = t.TrackUserEvent(telemetryRequest.Event, userID, telemetryRequest.Properties)
+		if err != nil {
+			return errors.Wrap(err, "unable to track event")
+		}
 	}
 
 	return nil
