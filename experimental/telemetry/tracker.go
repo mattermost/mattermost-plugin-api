@@ -49,7 +49,6 @@ type tracker struct {
 // - telemetryShortName: Short name for the plugin to use in telemetry. Used to avoid dot separated names like `com.company.pluginName`.
 // If a empty string is provided, it will use the pluginID.
 // - enableDiagnostics: Whether the system has enabled sending telemetry data. If false, the tracker will not track any event.
-// - l Logger: A logger to log any error related with the telemetry tracking.
 func NewTracker(
 	c Client,
 	diagnosticID,
@@ -114,21 +113,21 @@ type telemetryAPIRequest struct {
 	Properties map[string]interface{}
 }
 
-func (t *tracker) HandleClientEvent(w http.ResponseWriter, r *http.Request) {
+func (t *tracker) HandleClientEvent(r *http.Request) error {
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
+		return errors.New("not authorized")
 	}
 
 	var telemetryRequest *telemetryAPIRequest
 	err := json.NewDecoder(r.Body).Decode(&telemetryRequest)
 	if err != nil {
-		http.Error(w, "Unable to decode JSON", http.StatusBadRequest)
-		return
+		return errors.Wrap(err, "unable to decode JSON")
 	}
 
 	if telemetryRequest.Event != "" {
 		_ = t.TrackUserEvent(telemetryRequest.Event, userID, telemetryRequest.Properties)
 	}
+
+	return nil
 }
