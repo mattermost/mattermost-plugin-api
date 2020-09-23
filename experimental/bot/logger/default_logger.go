@@ -39,6 +39,15 @@ func (l *defaultLogger) With(logContext LogContext) Logger {
 	return &newLogger
 }
 
+func (l *defaultLogger) WithError(err error) Logger {
+	newLogger := *l
+	if len(newLogger.logContext) == 0 {
+		newLogger.logContext = map[string]interface{}{}
+	}
+	newLogger.logContext[ErrorKey] = err.Error()
+	return &newLogger
+}
+
 func (l *defaultLogger) Context() LogContext {
 	return l.logContext
 }
@@ -52,23 +61,23 @@ func (l *defaultLogger) Timed() Logger {
 func (l *defaultLogger) Debugf(format string, args ...interface{}) {
 	measure(l.logContext)
 	message := fmt.Sprintf(format, args...)
-	l.logAPI.Debug(message, toKeyValuePairs(l.logContext)...)
+	l.logAPI.LogDebug(message, toKeyValuePairs(l.logContext)...)
 }
 
 func (l *defaultLogger) Errorf(format string, args ...interface{}) {
 	measure(l.logContext)
 	message := fmt.Sprintf(format, args...)
-	l.logAPI.Error(message, toKeyValuePairs(l.logContext)...)
+	l.logAPI.LogError(message, toKeyValuePairs(l.logContext)...)
 }
 
 func (l *defaultLogger) Infof(format string, args ...interface{}) {
 	measure(l.logContext)
 	message := fmt.Sprintf(format, args...)
-	l.logAPI.Info(message, toKeyValuePairs(l.logContext)...)
+	l.logAPI.LogInfo(message, toKeyValuePairs(l.logContext)...)
 }
 
 func (l *defaultLogger) Warnf(format string, args ...interface{}) {
 	measure(l.logContext)
 	message := fmt.Sprintf(format, args...)
-	l.logAPI.Warn(message, toKeyValuePairs(l.logContext)...)
+	l.logAPI.LogWarn(message, toKeyValuePairs(l.logContext)...)
 }
