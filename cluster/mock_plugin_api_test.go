@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"bytes"
+	"strings"
 	"sync"
 	"testing"
 
@@ -11,9 +12,10 @@ import (
 type mockPluginAPI struct {
 	t *testing.T
 
-	lock      sync.Mutex
-	keyValues map[string][]byte
-	failing   bool
+	lock              sync.Mutex
+	keyValues         map[string][]byte
+	failing           bool
+	failingWithPrefix string
 }
 
 func newMockPluginAPI(t *testing.T) *mockPluginAPI {
@@ -47,7 +49,41 @@ func (pluginAPI *mockPluginAPI) KVGet(key string) ([]byte, *model.AppError) {
 		return nil, &model.AppError{Message: "fake error"}
 	}
 
+	if pluginAPI.failingWithPrefix != "" && strings.HasPrefix(key, pluginAPI.failingWithPrefix) {
+		return nil, &model.AppError{Message: "fake error for prefix " + pluginAPI.failingWithPrefix}
+	}
+
 	return pluginAPI.keyValues[key], nil
+}
+
+func (pluginAPI *mockPluginAPI) KVDelete(key string) *model.AppError {
+	pluginAPI.lock.Lock()
+	defer pluginAPI.lock.Unlock()
+
+	if pluginAPI.failing {
+		return &model.AppError{Message: "fake error"}
+	}
+
+	delete(pluginAPI.keyValues, key)
+
+	return nil
+}
+
+// NOTE: this mocked function won't respect the page and count options
+func (pluginAPI *mockPluginAPI) KVList(page, count int) ([]string, *model.AppError) {
+	pluginAPI.lock.Lock()
+	defer pluginAPI.lock.Unlock()
+
+	if pluginAPI.failing {
+		return nil, &model.AppError{Message: "fake error"}
+	}
+
+	keys := make([]string, 0, len(pluginAPI.keyValues))
+	for k := range pluginAPI.keyValues {
+		keys = append(keys, k)
+	}
+
+	return keys, nil
 }
 
 func (pluginAPI *mockPluginAPI) KVSetWithOptions(key string, value []byte, options model.PluginKVSetOptions) (bool, *model.AppError) {
