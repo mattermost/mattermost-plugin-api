@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
@@ -111,7 +110,8 @@ func ScheduleOnceStartScheduler(pluginAPI JobPluginAPI) error {
 	return nil
 }
 
-// ListScheduledJobs returns a list of the jobs in the db that have been scheduled but not fired.
+// ListScheduledJobs returns a list of the jobs in the db that have been scheduled. The jobs may
+// have been fired by the time the caller reads the list.
 func ListScheduledJobs(pluginAPI JobPluginAPI) ([]*JobOnce, error) {
 	var list []*JobOnce
 	for i := 0; ; i++ {
@@ -121,6 +121,7 @@ func ListScheduledJobs(pluginAPI JobPluginAPI) ([]*JobOnce, error) {
 		}
 		for _, k := range keys {
 			if strings.HasPrefix(k, oncePrefix) {
+				// We do not need the cluster lock because we are only reading the list here.
 				metadata, err := readMetadata(pluginAPI, k[len(oncePrefix):])
 				if err != nil {
 					pluginAPI.LogError(errors.Wrap(err, "could not retrieve data from plugin kvstore for key: "+k).Error())
@@ -165,12 +166,10 @@ func ScheduleOnce(pluginAPI JobPluginAPI, key string, runAt time.Time) (*JobOnce
 		return nil, errors.Wrap(err, "could not create new job")
 	}
 
-	fmt.Println("<><> ScheduleOnce saving metadata for: " + job.key)
 	if err = job.saveMetadata(); err != nil {
 		return nil, errors.Wrap(err, "could not save job metadata")
 	}
 
-	fmt.Println("<><> running job from ScheduleOnce for: " + job.key)
 	go job.run()
 
 	return job, nil
@@ -207,7 +206,6 @@ func scheduleNewJobsFromDB(pluginAPI JobPluginAPI) error {
 			continue
 		}
 
-		fmt.Println("<><> running job from scheduleNewJobsFromDB: " + j.key)
 		go j.run()
 
 		currentlyScheduled.keys[j.key] = true
@@ -233,14 +231,10 @@ func (j *JobOnce) run() {
 	wait := j.runAt.Sub(time.Now())
 
 	for {
-		fmt.Println("<><> at start of for")
-
 		select {
 		case <-j.done:
-			fmt.Println("<><> received something on j.done.")
 			return
 		case <-time.After(wait):
-			fmt.Println("<><> finished waiting")
 		}
 
 		func() {
@@ -251,10 +245,8 @@ func (j *JobOnce) run() {
 			// Check that the job has not been completed
 			metadata, err := j.readMetadata()
 			if err != nil {
-				fmt.Println("<><> failed to get metadata")
 				j.numFails++
 				if j.numFails > maxNumFails {
-					fmt.Println("<><> failed get metadata too many times, closing mutex")
 					j.closeHoldingMutex()
 					return
 				}
@@ -266,7 +258,6 @@ func (j *JobOnce) run() {
 
 			// If key doesn't exist, the job has been completed already
 			if metadata == nil {
-				fmt.Println("<><> metadata nil, closing mutex")
 				j.closeHoldingMutex()
 				return
 			}
@@ -277,31 +268,15 @@ func (j *JobOnce) run() {
 			err = storedCallback.callback(j.key)
 			if err != nil {
 				j.pluginAPI.LogError("callback returned an error for job key: " + j.key)
-				// Plugin could not complete the task
-				fmt.Println("<><> plugin could not complete task")
-				j.numFails++
-				if j.numFails > maxNumFails {
-					fmt.Println("<><> failed callback, closing mutex")
-					j.closeHoldingMutex()
-					return
-				}
-
-				// wait a bit of time and try again
-				wait = waitAfterFail + addJitter()
-				return
 			}
 
-			// Plugin could complete the task, it is done.
-			fmt.Println("<><> plugin completed task")
 			j.closeHoldingMutex()
-			fmt.Println("<><> after closeHoldingMutex")
 		}()
-		fmt.Println("<><> outside the func")
 	}
 }
 
-// readMetadata reads the job's stored metadata. It does not request a cluster lock. If the caller
-// wishes to make an 'atomic' read/write, the cluster mutex for job's key should be held.
+// readMetadata reads the job's stored metadata. If the caller wishes to make an atomic
+// read/write, the cluster mutex for job's key should be held.
 func readMetadata(pluginAPI JobPluginAPI, key string) (*jobOnceMetadata, error) {
 	data, appErr := pluginAPI.KVGet(oncePrefix + key)
 	if appErr != nil {
@@ -349,7 +324,6 @@ func (j *JobOnce) saveMetadata() error {
 // closeHoldingMutex assumes the job's mutex is held.
 func (j *JobOnce) closeHoldingMutex() {
 	// remove the job from the kv store, if it exists
-	fmt.Println("<><> trying to remove job from kvStore")
 	_ = j.pluginAPI.KVDelete(oncePrefix + j.key)
 
 	// remove the job from the currentlyScheduled map so we can reschedule if needed later
@@ -358,7 +332,6 @@ func (j *JobOnce) closeHoldingMutex() {
 	delete(currentlyScheduled.keys, j.key)
 
 	j.doneOnce.Do(func() {
-		fmt.Println("<><> closeHoldingMutex, closing j.done")
 		close(j.done)
 	})
 }
