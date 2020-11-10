@@ -3,10 +3,11 @@ package cluster
 import (
 	"encoding/json"
 	"math/rand"
-	"strings"
+	"net/http"
 	"sync"
 	"time"
 
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/pkg/errors"
 )
@@ -32,6 +33,11 @@ const (
 	scheduleOnceJitter = 100 * time.Millisecond
 )
 
+type JobOnceMetadata struct {
+	Key   string
+	RunAt time.Time
+}
+
 type JobOnce struct {
 	pluginAPI    JobPluginAPI
 	clusterMutex *Mutex
@@ -41,138 +47,14 @@ type JobOnce struct {
 	runAt    time.Time
 	numFails int
 
-	doneOnce sync.Once
+	// done signals the job.run go routine to exit
 	done     chan bool
-}
+	doneOnce sync.Once
 
-type jobOnceMetadata struct {
-	Key   string
-	RunAt time.Time
-}
-
-var storedCallback struct {
-	mu       sync.RWMutex
-	callback func(string) error
-}
-
-var currentlyScheduled = struct {
-	mu   sync.Mutex
-	keys map[string]bool
-}{
-	keys: make(map[string]bool),
-}
-
-var startPollingOnce sync.Once
-
-// NewJobOnce returns a JobOnce ready to be used in ScheduleOnce
-func NewJobOnce(pluginAPI JobPluginAPI, metadata jobOnceMetadata) (*JobOnce, error) {
-	mutex, err := NewMutex(pluginAPI, metadata.Key)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create job mutex")
-	}
-
-	return &JobOnce{
-		pluginAPI:    pluginAPI,
-		clusterMutex: mutex,
-		key:          metadata.Key,
-		runAt:        metadata.RunAt,
-		done:         make(chan bool),
-	}, nil
-}
-
-// ScheduleOnceRegisterCallback registers the callback function that will be called when a
-// ScheduleOnce job fires. Will ignore nil callbacks.
-func ScheduleOnceRegisterCallback(callback func(string) error) {
-	if callback == nil {
-		return
-	}
-
-	storedCallback.mu.Lock()
-	defer storedCallback.mu.Unlock()
-
-	storedCallback.callback = callback
-}
-
-// ScheduleOnceStartScheduler finds all previous ScheduleOnce jobs and starts them running, and
-// fires any jobs that have reached or exceeded their runAt time. Therefore, even if a cluster goes
-// down and is restarted, StartScheduler will restart all previously scheduled jobs. Plugins using
-// ScheduleOnce should call this when ready to handle calls to the registered callback function.
-func ScheduleOnceStartScheduler(pluginAPI JobPluginAPI) error {
-	if err := scheduleNewJobsFromDB(pluginAPI); err != nil {
-		return errors.Wrap(err, "could not start scheduler due to error")
-	}
-
-	// Start polling but only on the first call
-	startPollingOnce.Do(func() {
-		go pollForNewScheduledJobs(pluginAPI)
-	})
-
-	return nil
-}
-
-// ListScheduledJobs returns a list of the jobs in the db that have been scheduled. The jobs may
-// have been fired by the time the caller reads the list.
-func ListScheduledJobs(pluginAPI JobPluginAPI) ([]*JobOnce, error) {
-	var list []*JobOnce
-	for i := 0; ; i++ {
-		keys, err := pluginAPI.KVList(i, keysPerPage)
-		if err != nil {
-			return nil, errors.Wrap(err, "error getting KVList")
-		}
-		for _, k := range keys {
-			if strings.HasPrefix(k, oncePrefix) {
-				// We do not need the cluster lock because we are only reading the list here.
-				metadata, err := readMetadata(pluginAPI, k[len(oncePrefix):])
-				if err != nil {
-					pluginAPI.LogError(errors.Wrap(err, "could not retrieve data from plugin kvstore for key: "+k).Error())
-					continue
-				}
-				if metadata == nil {
-					continue
-				}
-
-				job, err := NewJobOnce(pluginAPI, *metadata)
-				if err != nil {
-					pluginAPI.LogError(errors.Wrap(err, "could not create new job for key: "+k).Error())
-					continue
-				}
-				list = append(list, job)
-			}
-		}
-
-		if len(keys) < keysPerPage {
-			break
-		}
-	}
-
-	return list, nil
-}
-
-// ScheduleOnce creates a scheduled job that will run once. When the clock reaches runAt, the
-// storedCallback (set using RegisterCallback) will be called with key as the argument.
-func ScheduleOnce(pluginAPI JobPluginAPI, key string, runAt time.Time) (*JobOnce, error) {
-	storedCallback.mu.RLock()
-	defer storedCallback.mu.RUnlock()
-	if storedCallback.callback == nil {
-		return nil, errors.New("must call RegisterCallback before scheduling new jobs")
-	}
-
-	metadata := jobOnceMetadata{
-		Key:   key,
-		RunAt: runAt,
-	}
-	job, err := NewJobOnce(pluginAPI, metadata)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create new job")
-	}
-
-	if err = job.saveMetadata(); err != nil {
-		return nil, errors.Wrap(err, "could not save job metadata")
-	}
-
-	go job.run()
-
-	return job, nil
+	// join is a join point for the job.run() goroutine to join the calling goroutine (in this case,
+	// the one calling job.Close)
+	join     chan bool
+	joinOnce sync.Once
 }
 
 // Close terminates a scheduled job, preventing it from being scheduled on this plugin instance.
@@ -183,51 +65,32 @@ func (j *JobOnce) Close() {
 	defer j.clusterMutex.Unlock()
 
 	j.closeHoldingMutex()
+
+	// join the running goroutine
+	j.joinOnce.Do(func() {
+		<-j.join
+	})
 }
 
-func scheduleNewJobsFromDB(pluginAPI JobPluginAPI) error {
-	storedCallback.mu.RLock()
-	defer storedCallback.mu.RUnlock()
-	if storedCallback.callback == nil {
-		return errors.New("must call RegisterCallback before starting the scheduler")
-	}
-
-	jobs, err := ListScheduledJobs(pluginAPI)
+func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time) (*JobOnce, error) {
+	mutex, err := NewMutex(pluginAPI, key)
 	if err != nil {
-		return errors.Wrap(err, "could not read scheduled jobs from db")
+		return nil, errors.Wrap(err, "failed to create job mutex")
 	}
 
-	// lock and hold until we're done updating the currently scheduled jobs
-	currentlyScheduled.mu.Lock()
-	defer currentlyScheduled.mu.Unlock()
-
-	for _, j := range jobs {
-		if currentlyScheduled.keys[j.key] {
-			continue
-		}
-
-		go j.run()
-
-		currentlyScheduled.keys[j.key] = true
-	}
-
-	return nil
-}
-
-// pollForNewScheduledJobs will only be started once per plugin. It doesn't need to be stopped.
-func pollForNewScheduledJobs(pluginAPI JobPluginAPI) {
-	for {
-		select {
-		case <-time.After(pollNewJobsInterval + addJitter()):
-		}
-
-		if err := scheduleNewJobsFromDB(pluginAPI); err != nil {
-			pluginAPI.LogError("pluginAPI scheduleOnce poller encountered an error but is still polling", "error", err)
-		}
-	}
+	return &JobOnce{
+		pluginAPI:    pluginAPI,
+		clusterMutex: mutex,
+		key:          key,
+		runAt:        runAt,
+		done:         make(chan bool),
+		join:         make(chan bool),
+	}, nil
 }
 
 func (j *JobOnce) run() {
+	defer close(j.join)
+
 	wait := j.runAt.Sub(time.Now())
 
 	for {
@@ -243,7 +106,7 @@ func (j *JobOnce) run() {
 			defer j.clusterMutex.Unlock()
 
 			// Check that the job has not been completed
-			metadata, err := j.readMetadata()
+			metadata, err := readMetadata(j.pluginAPI, j.key)
 			if err != nil {
 				j.numFails++
 				if j.numFails > maxNumFails {
@@ -265,10 +128,7 @@ func (j *JobOnce) run() {
 			// Run the job
 			storedCallback.mu.RLock()
 			defer storedCallback.mu.RUnlock()
-			err = storedCallback.callback(j.key)
-			if err != nil {
-				j.pluginAPI.LogError("callback returned an error for job key: " + j.key)
-			}
+			storedCallback.callback(j.key)
 
 			j.closeHoldingMutex()
 		}()
@@ -277,17 +137,17 @@ func (j *JobOnce) run() {
 
 // readMetadata reads the job's stored metadata. If the caller wishes to make an atomic
 // read/write, the cluster mutex for job's key should be held.
-func readMetadata(pluginAPI JobPluginAPI, key string) (*jobOnceMetadata, error) {
+func readMetadata(pluginAPI JobPluginAPI, key string) (*JobOnceMetadata, error) {
 	data, appErr := pluginAPI.KVGet(oncePrefix + key)
 	if appErr != nil {
-		return nil, errors.Wrap(appErr, "failed to read data")
+		return nil, errors.Wrap(normalizeAppErr(appErr), "failed to read data")
 	}
 
 	if data == nil {
 		return nil, nil
 	}
 
-	var metadata jobOnceMetadata
+	var metadata JobOnceMetadata
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		return nil, errors.Wrap(err, "failed to decode data")
 	}
@@ -295,13 +155,13 @@ func readMetadata(pluginAPI JobPluginAPI, key string) (*jobOnceMetadata, error) 
 	return &metadata, nil
 }
 
-func (j *JobOnce) readMetadata() (*jobOnceMetadata, error) {
-	return readMetadata(j.pluginAPI, j.key)
-}
-
-// saveMetadata writes the job's metadata to the kvstore.
+// saveMetadata writes the job's metadata to the kvstore. saveMetadata acquires the job's cluster lock.
+// saveMetadata will not overwrite an existing key.
 func (j *JobOnce) saveMetadata() error {
-	metadata := jobOnceMetadata{
+	j.clusterMutex.Lock()
+	defer j.clusterMutex.Unlock()
+
+	metadata := JobOnceMetadata{
 		Key:   j.key,
 		RunAt: j.runAt,
 	}
@@ -310,12 +170,15 @@ func (j *JobOnce) saveMetadata() error {
 		return errors.Wrap(err, "failed to marshal data")
 	}
 
-	j.clusterMutex.Lock()
-	defer j.clusterMutex.Unlock()
-
-	ok, appErr := j.pluginAPI.KVSetWithOptions(oncePrefix+j.key, data, model.PluginKVSetOptions{})
-	if appErr != nil || !ok {
-		return errors.Wrap(appErr, "failed to set data")
+	ok, appErr := j.pluginAPI.KVSetWithOptions(oncePrefix+j.key, data, model.PluginKVSetOptions{
+		Atomic:   true,
+		OldValue: nil,
+	})
+	if appErr != nil {
+		return normalizeAppErr(appErr)
+	}
+	if !ok {
+		return errors.New("failed to set data")
 	}
 
 	return nil
@@ -326,10 +189,9 @@ func (j *JobOnce) closeHoldingMutex() {
 	// remove the job from the kv store, if it exists
 	_ = j.pluginAPI.KVDelete(oncePrefix + j.key)
 
-	// remove the job from the currentlyScheduled map so we can reschedule if needed later
-	currentlyScheduled.mu.Lock()
-	defer currentlyScheduled.mu.Unlock()
-	delete(currentlyScheduled.keys, j.key)
+	activeJobs.mu.Lock()
+	defer activeJobs.mu.Unlock()
+	delete(activeJobs.jobs, j.key)
 
 	j.doneOnce.Do(func() {
 		close(j.done)
@@ -338,4 +200,16 @@ func (j *JobOnce) closeHoldingMutex() {
 
 func addJitter() time.Duration {
 	return time.Duration(rand.Int63n(int64(scheduleOnceJitter)))
+}
+
+func normalizeAppErr(appErr *model.AppError) error {
+	if appErr == nil {
+		return nil
+	}
+
+	if appErr.StatusCode == http.StatusNotFound {
+		return pluginapi.ErrNotFound
+	}
+
+	return appErr
 }
