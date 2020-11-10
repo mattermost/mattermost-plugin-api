@@ -14,25 +14,19 @@ func ExampleScheduleOnce() {
 		}
 	}
 
-	// Set the callback. The most recently set callback will be used for all future job calls.
-	RegisterJobOnceCallback(callback)
-
-	// Start the scheduler. This should only be done once per plugin instance.
-	scheduler, err := StartJobOnceScheduler(pluginAPI)
+	// Start the scheduler.
+	scheduler, err := StartJobOnceScheduler(pluginAPI, callback)
 	if err != nil {
 		// You probably forgot to call RegisterJobOnceCallback first.
 		return
 	}
 
-	// Maybe you want to check the scheduled jobs, or close them:
-	//jobs, err := scheduler.ListScheduledJobs()
-
 	// main thread
 
-	// Find the active jobs and close them
-	activeJobs := scheduler.ListActiveJobs()
+	// Maybe you want to check the scheduled jobs, or close them:
+	jobs, err := scheduler.ListScheduledJobs()
 	defer func() {
-		for _, j := range activeJobs {
+		for _, j := range jobs {
 			scheduler.Close(j.Key)
 		}
 	}()

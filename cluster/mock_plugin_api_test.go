@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"bytes"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -30,6 +31,13 @@ func (pluginAPI *mockPluginAPI) setFailing(failing bool) {
 	defer pluginAPI.lock.Unlock()
 
 	pluginAPI.failing = failing
+}
+
+func (pluginAPI *mockPluginAPI) setFailingWithPrefix(prefix string) {
+	pluginAPI.lock.Lock()
+	defer pluginAPI.lock.Unlock()
+
+	pluginAPI.failingWithPrefix = prefix
 }
 
 func (pluginAPI *mockPluginAPI) clear() {
@@ -69,7 +77,6 @@ func (pluginAPI *mockPluginAPI) KVDelete(key string) *model.AppError {
 	return nil
 }
 
-// NOTE: this mocked function won't respect the page and count options
 func (pluginAPI *mockPluginAPI) KVList(page, count int) ([]string, *model.AppError) {
 	pluginAPI.lock.Lock()
 	defer pluginAPI.lock.Unlock()
@@ -83,7 +90,19 @@ func (pluginAPI *mockPluginAPI) KVList(page, count int) ([]string, *model.AppErr
 		keys = append(keys, k)
 	}
 
-	return keys, nil
+	// have to sort, because we're paging below
+	sort.Strings(keys)
+
+	start := min(page*count, len(keys))
+	end := min((page+1)*count, len(keys))
+	return keys[start:end], nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (pluginAPI *mockPluginAPI) KVSetWithOptions(key string, value []byte, options model.PluginKVSetOptions) (bool, *model.AppError) {

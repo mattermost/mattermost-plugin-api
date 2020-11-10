@@ -98,7 +98,7 @@ func (j *JobOnce) run() {
 		select {
 		case <-j.done:
 			return
-		case <-time.After(wait):
+		case <-time.After(wait + addJitter()):
 		}
 
 		func() {
@@ -116,7 +116,7 @@ func (j *JobOnce) run() {
 				}
 
 				// wait a bit of time and try again
-				wait = waitAfterFail + addJitter()
+				wait = waitAfterFail
 				return
 			}
 
@@ -127,9 +127,9 @@ func (j *JobOnce) run() {
 			}
 
 			// Run the job
-			storedCallback.mu.RLock()
-			defer storedCallback.mu.RUnlock()
+			storedCallback.mu.Lock()
 			storedCallback.callback(j.key)
+			storedCallback.mu.Unlock()
 
 			j.closeHoldingMutex()
 		}()

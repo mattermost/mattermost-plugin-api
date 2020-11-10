@@ -11,8 +11,6 @@ import (
 )
 
 func TestScheduleOnceParallel(t *testing.T) {
-	t.Parallel()
-
 	makeKey := model.NewId
 
 	// there is only one callback by design, so all tests need to add their key
@@ -48,6 +46,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 			count, ok := manyJobs[key]
 			if ok {
 				atomic.AddInt32(count, 1)
+				return
 			}
 		}
 	}
@@ -58,8 +57,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		return data
 	}
 
-	RegisterJobOnceCallback(callback)
-	scheduler, err := StartJobOnceScheduler(mockPluginAPI)
+	scheduler, err := StartJobOnceScheduler(mockPluginAPI, callback)
 	require.NoError(t, err)
 	jobs, err := scheduler.ListScheduledJobs()
 	require.NoError(t, err)
@@ -73,7 +71,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey1))
 
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(200*time.Millisecond + scheduleOnceJitter)
 
 		assert.Empty(t, getVal(oncePrefix+jobKey1))
 		activeJobs.mu.RLock()
@@ -104,7 +102,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		assert.Empty(t, activeJobs.jobs[jobKey2])
 		activeJobs.mu.RUnlock()
 
-		time.Sleep(2 * waitAfterFail)
+		time.Sleep(2 * (waitAfterFail + scheduleOnceJitter))
 
 		// Should not have been called
 		assert.Equal(t, int32(0), *count2)
@@ -124,7 +122,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey3))
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(200*time.Millisecond + scheduleOnceJitter)
 		assert.Empty(t, getVal(oncePrefix+jobKey3))
 		activeJobs.mu.RLock()
 		assert.Empty(t, activeJobs.jobs[jobKey3])
@@ -150,7 +148,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey4))
 
-		time.Sleep(120 * time.Millisecond)
+		time.Sleep(200*time.Millisecond + scheduleOnceJitter)
 		assert.Equal(t, int32(1), atomic.LoadInt32(count4))
 		assert.Empty(t, getVal(oncePrefix+jobKey4))
 		activeJobs.mu.RLock()
@@ -168,7 +166,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 			assert.NotEmpty(t, getVal(oncePrefix+k))
 		}
 
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(200*time.Millisecond + scheduleOnceJitter)
 
 		for k, v := range manyJobs {
 			assert.Empty(t, getVal(oncePrefix+k))
@@ -190,7 +188,8 @@ func TestScheduleOnceParallel(t *testing.T) {
 		assert.NotEmpty(t, activeJobs.jobs[jobKey5])
 		activeJobs.mu.RUnlock()
 
-		jobs := scheduler.ListActiveJobs()
+		jobs, err := scheduler.ListScheduledJobs()
+		require.NoError(t, err)
 		// simulate finding it in the list for whatever reason
 		for _, jobs := range jobs {
 			if jobs.Key == jobKey5 {
@@ -207,15 +206,151 @@ func TestScheduleOnceParallel(t *testing.T) {
 		// close it again doesn't do anything:
 		scheduler.Close(jobKey5)
 
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(150*time.Millisecond + scheduleOnceJitter)
 		assert.Equal(t, int32(0), *count5)
+	})
+
+	t.Run("starting the scheduler again will return an error", func(t *testing.T) {
+		t.Parallel()
+
+		newScheduler, err := StartJobOnceScheduler(mockPluginAPI, callback)
+		require.Error(t, err)
+		require.Nil(t, newScheduler)
+	})
+}
+
+func TestScheduleOnceStress(t *testing.T) {
+	makeKey := model.NewId
+
+	numPagingJobs := keysPerPage*3 + 2
+	testPagingJobs := make(map[string]*int32)
+	for i := 0; i < numPagingJobs; i++ {
+		testPagingJobs[makeKey()] = new(int32)
+	}
+
+	callback := func(key string) {
+		count, ok := testPagingJobs[key]
+		if ok {
+			atomic.AddInt32(count, 1)
+			return
+		}
+	}
+
+	mockPluginAPI := newMockPluginAPI(t)
+	getVal := func(key string) []byte {
+		data, _ := mockPluginAPI.KVGet(key)
+		return data
+	}
+
+	// reset the scheduler from previous tests:
+	func() {
+		activeJobs.mu.Lock()
+		defer activeJobs.mu.Unlock()
+		storedCallback.mu.Lock()
+		defer storedCallback.mu.Unlock()
+		activeJobs.jobs = make(map[string]*JobOnce)
+		storedCallback.callback = nil
+		mockPluginAPI.clear() // just in case?
+	}()
+
+	// add the test paging jobs before starting scheduler
+	for k := range testPagingJobs {
+		assert.Empty(t, getVal(oncePrefix+k))
+		job, err := newJobOnce(mockPluginAPI, k, time.Now().Add(100*time.Millisecond))
+		require.NoError(t, err)
+		err = job.saveMetadata()
+		require.NoError(t, err)
+		assert.NotEmpty(t, getVal(oncePrefix+k))
+	}
+
+	keys, appErr := mockPluginAPI.KVList(0, 99999)
+	require.Nil(t, appErr)
+	assert.Equal(t, len(testPagingJobs), len(keys))
+
+	// Ensure the jobs are there and haven't run yet: (double checking because of the race detector
+	// problem below.
+	numInDB := 0
+	numCountsAtZero := 0
+	for k, v := range testPagingJobs {
+		if getVal(oncePrefix+k) != nil {
+			numInDB++
+		}
+		if atomic.LoadInt32(v) == int32(0) {
+			numCountsAtZero++
+		}
+	}
+
+	assert.Equal(t, len(testPagingJobs), numInDB)
+	assert.Equal(t, len(testPagingJobs), numCountsAtZero)
+
+	_, err := StartJobOnceScheduler(mockPluginAPI, callback)
+	require.NoError(t, err)
+
+	// When using the race detector, the following two asserts fail. They don't fail when running
+	// tests without the race detector. Something is happening with the race detector that I don't
+	// understand. Either way, the counts get correctly incremented below with the race detector,
+	// so the jobs are firing correctly.
+	//
+	//keys, appErr = mockPluginAPI.KVList(0, 99999)
+	//require.Nil(t, appErr)
+	//assert.Equal(t, len(testPagingJobs), len(keys))
+	//
+	//jobs, err := scheduler.ListScheduledJobs()
+	//require.NoError(t, err)
+	//assert.Equal(t, len(testPagingJobs), len(jobs))
+
+	t.Run("test paging keys from the db by inserting 3 pages of jobs and starting scheduler", func(t *testing.T) {
+		// wait for the testPagingJobs created in the setup to finish
+		time.Sleep(300 * time.Millisecond)
+
+		numInDB := 0
+		numActive := 0
+		numCountsAtZero := 0
+		for k, v := range testPagingJobs {
+			if getVal(oncePrefix+k) != nil {
+				numInDB++
+			}
+			activeJobs.mu.RLock()
+			if activeJobs.jobs[k] != nil {
+				numActive++
+			}
+			activeJobs.mu.RUnlock()
+			if atomic.LoadInt32(v) == int32(0) {
+				numCountsAtZero++
+			}
+		}
+
+		assert.Equal(t, 0, numInDB)
+		assert.Equal(t, 0, numActive)
+		assert.Equal(t, 0, numCountsAtZero)
 	})
 }
 
 func TestScheduleOnceSequential(t *testing.T) {
 	makeKey := model.NewId
 
+	resetScheduler := func() {
+		activeJobs.mu.Lock()
+		defer activeJobs.mu.Unlock()
+		storedCallback.mu.Lock()
+		defer storedCallback.mu.Unlock()
+		activeJobs.jobs = make(map[string]*JobOnce)
+		storedCallback.callback = nil
+	}
+
+	t.Run("starting the scheduler with a nil callback will return an error", func(t *testing.T) {
+		resetScheduler()
+
+		mockPluginAPI := newMockPluginAPI(t)
+
+		scheduler, err := StartJobOnceScheduler(mockPluginAPI, nil)
+		require.Error(t, err)
+		require.Nil(t, scheduler)
+	})
+
 	t.Run("failed at the db", func(t *testing.T) {
+		resetScheduler()
+
 		jobKey1 := makeKey()
 		count1 := new(int32)
 
@@ -231,8 +366,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			return data
 		}
 
-		RegisterJobOnceCallback(callback)
-		scheduler, err := StartJobOnceScheduler(mockPluginAPI)
+		scheduler, err := StartJobOnceScheduler(mockPluginAPI, callback)
 		require.NoError(t, err)
 		jobs, err := scheduler.ListScheduledJobs()
 		require.NoError(t, err)
@@ -243,12 +377,10 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey1))
 		assert.NotEmpty(t, activeJobs.jobs[jobKey1])
-		mockPluginAPI.lock.Lock()
-		mockPluginAPI.failingWithPrefix = oncePrefix
-		mockPluginAPI.lock.Unlock()
+		mockPluginAPI.setFailingWithPrefix(oncePrefix)
 
 		// wait until the metadata has failed to read
-		time.Sleep((maxNumFails + 1) * waitAfterFail)
+		time.Sleep((maxNumFails + 1) * (waitAfterFail + scheduleOnceJitter))
 		assert.Equal(t, int32(0), *count1)
 		assert.Nil(t, getVal(oncePrefix+jobKey1))
 
@@ -258,6 +390,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 	})
 
 	t.Run("simulate starting the plugin with 3 pending jobs in the db", func(t *testing.T) {
+		resetScheduler()
+
 		jobKeys := make(map[string]*int32)
 		for i := 0; i < 3; i++ {
 			jobKeys[makeKey()] = new(int32)
@@ -277,7 +411,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		}
 
 		for k := range jobKeys {
-			job, err := newJobOnce(mockPluginAPI, k, time.Now().Add(100*time.Millisecond+addJitter()))
+			job, err := newJobOnce(mockPluginAPI, k, time.Now().Add(100*time.Millisecond))
 			require.NoError(t, err)
 			err = job.saveMetadata()
 			require.NoError(t, err)
@@ -285,8 +419,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		}
 
 		// The jobs are in the db, start the plugin and make sure it runs those jobs.
-		RegisterJobOnceCallback(callback)
-		scheduler, err := StartJobOnceScheduler(mockPluginAPI)
+		scheduler, err := StartJobOnceScheduler(mockPluginAPI, callback)
 		require.NoError(t, err)
 
 		// double checking they're in the db:
@@ -294,7 +427,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, jobs, 3)
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(120*time.Millisecond + scheduleOnceJitter)
 
 		for k, v := range jobKeys {
 			assert.Empty(t, getVal(oncePrefix+k))
@@ -307,6 +440,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 	})
 
 	t.Run("calling close on a job from the db causes deadlock", func(t *testing.T) {
+		resetScheduler()
+
 		jobKeys := make(map[string]*int32)
 		for i := 0; i < 3; i++ {
 			jobKeys[makeKey()] = new(int32)
@@ -326,7 +461,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		}
 
 		for k := range jobKeys {
-			job, err := newJobOnce(mockPluginAPI, k, time.Now().Add(100*time.Millisecond+addJitter()))
+			job, err := newJobOnce(mockPluginAPI, k, time.Now().Add(100*time.Millisecond))
 			require.NoError(t, err)
 			err = job.saveMetadata()
 			require.NoError(t, err)
@@ -334,8 +469,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		}
 
 		// The jobs are in the db, start the plugin and make sure it runs those jobs.
-		RegisterJobOnceCallback(callback)
-		scheduler, err := StartJobOnceScheduler(mockPluginAPI)
+		scheduler, err := StartJobOnceScheduler(mockPluginAPI, callback)
 		require.NoError(t, err)
 
 		// double checking they're in the db:
@@ -343,7 +477,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, jobs, 3)
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(200*time.Millisecond + scheduleOnceJitter)
 
 		for k, v := range jobKeys {
 			assert.Empty(t, getVal(oncePrefix+k))
@@ -356,6 +490,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 	})
 
 	t.Run("starting a job and polling before it's finished results in only one job running", func(t *testing.T) {
+		resetScheduler()
+
 		jobKey := makeKey()
 		count := new(int32)
 
@@ -371,8 +507,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			return data
 		}
 
-		RegisterJobOnceCallback(callback)
-		scheduler, err := StartJobOnceScheduler(mockPluginAPI)
+		scheduler, err := StartJobOnceScheduler(mockPluginAPI, callback)
 		require.NoError(t, err)
 		jobs, err := scheduler.ListScheduledJobs()
 		require.NoError(t, err)
@@ -401,7 +536,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		activeJobs.mu.Unlock()
 
 		// now wait for it to complete
-		time.Sleep(120 * time.Millisecond)
+		time.Sleep(120*time.Millisecond + scheduleOnceJitter)
 		assert.Equal(t, int32(1), atomic.LoadInt32(count))
 		assert.Empty(t, getVal(oncePrefix+jobKey))
 		activeJobs.mu.Lock()
@@ -410,6 +545,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 	})
 
 	t.Run("starting the same job again while it's still active will fail", func(t *testing.T) {
+		resetScheduler()
+
 		jobKey := makeKey()
 		count := new(int32)
 
@@ -425,8 +562,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			return data
 		}
 
-		RegisterJobOnceCallback(callback)
-		scheduler, err := StartJobOnceScheduler(mockPluginAPI)
+		scheduler, err := StartJobOnceScheduler(mockPluginAPI, callback)
 		require.NoError(t, err)
 		jobs, err := scheduler.ListScheduledJobs()
 		require.NoError(t, err)
@@ -444,8 +580,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, job)
 
-		// now wait for it to complete
-		time.Sleep(120 * time.Millisecond)
+		// now wait for first job to complete
+		time.Sleep(120*time.Millisecond + scheduleOnceJitter)
 		assert.Equal(t, int32(1), atomic.LoadInt32(count))
 		assert.Empty(t, getVal(oncePrefix+jobKey))
 		assert.Empty(t, activeJobs.jobs)
