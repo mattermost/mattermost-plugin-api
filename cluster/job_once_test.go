@@ -39,7 +39,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		case jobKey2:
 			atomic.AddInt32(count2, 1)
 		case jobKey3:
-			return // do nothing, like an error occured in the plugin
+			return // do nothing, like an error occurred in the plugin
 		case jobKey4:
 			atomic.AddInt32(count4, 1)
 		case jobKey5:
@@ -150,8 +150,8 @@ func TestScheduleOnceParallel(t *testing.T) {
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey4))
 
-		time.Sleep(110 * time.Millisecond)
-		assert.Equal(t, int32(1), *count4)
+		time.Sleep(120 * time.Millisecond)
+		assert.Equal(t, int32(1), atomic.LoadInt32(count4))
 		assert.Empty(t, getVal(oncePrefix+jobKey4))
 		activeJobs.mu.RLock()
 		assert.Empty(t, activeJobs.jobs[jobKey4])
@@ -216,14 +216,11 @@ func TestScheduleOnceSequential(t *testing.T) {
 	makeKey := model.NewId
 
 	t.Run("failed at the db", func(t *testing.T) {
-		// there is only one callback by design, so all tests need to add their key
-		// and callback handling code here.
 		jobKey1 := makeKey()
 		count1 := new(int32)
 
 		callback := func(key string) {
-			switch key {
-			case jobKey1:
+			if key == jobKey1 {
 				atomic.AddInt32(count1, 1)
 			}
 		}
@@ -246,7 +243,9 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey1))
 		assert.NotEmpty(t, activeJobs.jobs[jobKey1])
+		mockPluginAPI.lock.Lock()
 		mockPluginAPI.failingWithPrefix = oncePrefix
+		mockPluginAPI.lock.Unlock()
 
 		// wait until the metadata has failed to read
 		time.Sleep((maxNumFails + 1) * waitAfterFail)
@@ -383,8 +382,10 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey))
+		activeJobs.mu.Lock()
 		assert.NotEmpty(t, activeJobs.jobs[jobKey])
 		assert.Len(t, activeJobs.jobs, 1)
+		activeJobs.mu.Unlock()
 
 		// simulate what the polling function will do for a long running job:
 		err = scheduler.scheduleNewJobsFromDB()
@@ -394,14 +395,18 @@ func TestScheduleOnceSequential(t *testing.T) {
 		err = scheduler.scheduleNewJobsFromDB()
 		require.NoError(t, err)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey))
+		activeJobs.mu.Lock()
 		assert.NotEmpty(t, activeJobs.jobs[jobKey])
 		assert.Len(t, activeJobs.jobs, 1)
+		activeJobs.mu.Unlock()
 
 		// now wait for it to complete
 		time.Sleep(120 * time.Millisecond)
-		assert.Equal(t, int32(1), *count)
+		assert.Equal(t, int32(1), atomic.LoadInt32(count))
 		assert.Empty(t, getVal(oncePrefix+jobKey))
+		activeJobs.mu.Lock()
 		assert.Empty(t, activeJobs.jobs)
+		activeJobs.mu.Unlock()
 	})
 
 	t.Run("starting the same job again while it's still active will fail", func(t *testing.T) {
@@ -441,9 +446,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 
 		// now wait for it to complete
 		time.Sleep(120 * time.Millisecond)
-		assert.Equal(t, int32(1), *count)
+		assert.Equal(t, int32(1), atomic.LoadInt32(count))
 		assert.Empty(t, getVal(oncePrefix+jobKey))
 		assert.Empty(t, activeJobs.jobs)
-
 	})
 }

@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/pkg/errors"
+
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
 )
 
 const (
@@ -91,7 +92,7 @@ func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time) (*JobOnce, 
 func (j *JobOnce) run() {
 	defer close(j.join)
 
-	wait := j.runAt.Sub(time.Now())
+	wait := time.Until(j.runAt)
 
 	for {
 		select {

@@ -210,9 +210,7 @@ func (s *JobOnceScheduler) runAndTrack(job *JobOnce) {
 // pollForNewScheduledJobs will only be started once per plugin. It doesn't need to be stopped.
 func (s *JobOnceScheduler) pollForNewScheduledJobs() {
 	for {
-		select {
-		case <-time.After(pollNewJobsInterval + addJitter()):
-		}
+		<-time.After(pollNewJobsInterval + addJitter())
 
 		if err := s.scheduleNewJobsFromDB(); err != nil {
 			s.pluginAPI.LogError("pluginAPI scheduleOnce poller encountered an error but is still polling", "error", err)
