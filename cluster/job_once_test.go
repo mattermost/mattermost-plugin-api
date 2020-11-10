@@ -286,19 +286,6 @@ func TestScheduleOnceStress(t *testing.T) {
 	_, err := StartJobOnceScheduler(mockPluginAPI, callback)
 	require.NoError(t, err)
 
-	// When using the race detector, the following two asserts fail. They don't fail when running
-	// tests without the race detector. Something is happening with the race detector that I don't
-	// understand. Either way, the counts get correctly incremented below with the race detector,
-	// so the jobs are firing correctly.
-	//
-	//keys, appErr = mockPluginAPI.KVList(0, 99999)
-	//require.Nil(t, appErr)
-	//assert.Equal(t, len(testPagingJobs), len(keys))
-	//
-	//jobs, err := scheduler.ListScheduledJobs()
-	//require.NoError(t, err)
-	//assert.Equal(t, len(testPagingJobs), len(jobs))
-
 	t.Run("test paging keys from the db by inserting 3 pages of jobs and starting scheduler", func(t *testing.T) {
 		// wait for the testPagingJobs created in the setup to finish
 		time.Sleep(300 * time.Millisecond)
