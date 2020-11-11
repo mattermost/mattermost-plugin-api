@@ -77,10 +77,10 @@ func (s *JobOnceScheduler) Start() error {
 	return nil
 }
 
-// AddJobOnceCallback adds a callback to the list. Each will be called with the job's id when the
+// AddCallback adds a callback to the list. Each will be called with the job's id when the
 // job fires. Returns the id of the callback which can be used to remove the callback in
-// RemoveJobOnceCallback.
-func (s *JobOnceScheduler) AddJobOnceCallback(callback func(string)) (string, error) {
+// RemoveCallback.
+func (s *JobOnceScheduler) AddCallback(callback func(string)) (string, error) {
 	if callback == nil {
 		return "", errors.New("callback cannot be nil")
 	}
@@ -93,8 +93,8 @@ func (s *JobOnceScheduler) AddJobOnceCallback(callback func(string)) (string, er
 	return id, nil
 }
 
-// RemoveJobOnceCallback will remove a callback by its id.
-func (s *JobOnceScheduler) RemoveJobOnceCallback(id string) {
+// RemoveCallback will remove a callback by its id.
+func (s *JobOnceScheduler) RemoveCallback(id string) {
 	s.storedCallbacks.mu.Lock()
 	defer s.storedCallbacks.mu.Unlock()
 	delete(s.storedCallbacks.callbacks, id)
@@ -135,8 +135,8 @@ func (s *JobOnceScheduler) ListScheduledJobs() ([]JobOnceMetadata, error) {
 	return ret, nil
 }
 
-// ScheduleOnce creates a scheduled job that will run once. When the clock reaches runAt, the
-// callback (set in Start) will be called with key as the argument.
+// ScheduleOnce creates a scheduled job that will run once. When the clock reaches runAt, all
+// callbacks will be called with key as the argument.
 //
 // If the job key already exists in the db, this will return an error. To reschedule a job, first
 // close the original then schedule the new one. For example: find the job in the list returned by

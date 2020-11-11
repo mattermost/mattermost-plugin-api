@@ -20,7 +20,7 @@ func ExampleScheduleOnce() {
 	scheduler := GetJobOnceScheduler(pluginAPI)
 
 	// And add callbacks to, near the parts of the code that will handle those jobs...
-	_, _ = scheduler.AddJobOnceCallback(callback)
+	_, _ = scheduler.AddCallback(callback)
 
 	// After the plugin has added its callbacks, start the scheduler, which schedules all waiting jobs.
 	_ = scheduler.Start()

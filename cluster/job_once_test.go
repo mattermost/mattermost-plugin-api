@@ -60,7 +60,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 	}
 
 	s := GetJobOnceScheduler(mockPluginAPI)
-	_, err := s.AddJobOnceCallback(callback)
+	_, err := s.AddCallback(callback)
 	require.NoError(t, err)
 	err = s.Start()
 	require.NoError(t, err)
@@ -233,9 +233,9 @@ func TestScheduleOnceParallel(t *testing.T) {
 			}
 		}
 
-		_, err := s.AddJobOnceCallback(callback2)
+		_, err := s.AddCallback(callback2)
 		require.NoError(t, err)
-		id3, err := s.AddJobOnceCallback(callback3)
+		id3, err := s.AddCallback(callback3)
 		require.NoError(t, err)
 
 		_, err = s.ScheduleOnce(newKey1, time.Now().Add(50*time.Millisecond))
@@ -243,7 +243,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		time.Sleep(70*time.Millisecond + scheduleOnceJitter)
 		assert.Equal(t, int32(2), atomic.LoadInt32(newCount1))
 
-		s.RemoveJobOnceCallback(id3)
+		s.RemoveCallback(id3)
 
 		_, err = s.ScheduleOnce(newKey1, time.Now().Add(50*time.Millisecond))
 		require.NoError(t, err)
@@ -291,7 +291,7 @@ func TestScheduleOnceStress(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, len(testPagingJobs), len(jobs))
 
-	_, err = s.AddJobOnceCallback(callback)
+	_, err = s.AddCallback(callback)
 	require.NoError(t, err)
 
 	// manually reschedule from the db:
@@ -364,7 +364,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			}
 		}
 
-		_, err := s.AddJobOnceCallback(callback)
+		_, err := s.AddCallback(callback)
 		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
@@ -404,7 +404,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 				atomic.AddInt32(count, 1)
 			}
 		}
-		_, err2 := s.AddJobOnceCallback(callback)
+		_, err2 := s.AddCallback(callback)
 		require.NoError(t, err2)
 
 		for k := range jobKeys {
@@ -449,7 +449,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			}
 		}
 
-		_, err := s.AddJobOnceCallback(callback)
+		_, err := s.AddCallback(callback)
 		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
@@ -499,7 +499,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			}
 		}
 
-		_, err := s.AddJobOnceCallback(callback)
+		_, err := s.AddCallback(callback)
 		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
