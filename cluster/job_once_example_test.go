@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	"time"
+
 	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
@@ -9,22 +11,27 @@ func ExampleScheduleOnce() {
 	pluginAPI := plugin.API(nil)
 
 	callback := func(key string) {
-		if key == "the-key-i-am-watching-for" {
+		if key == "the key i'm watching for" {
 			// Work to do only once per cluster
 		}
 	}
 
-	// Start the scheduler.
-	scheduler, err := StartJobOnceScheduler(pluginAPI, callback)
-	if err != nil {
-		// You probably forgot to call RegisterJobOnceCallback first.
-		return
-	}
+	// Get the scheduler, which you can pass throughout the plugin...
+	scheduler := GetJobOnceScheduler(pluginAPI)
+
+	// And add callbacks to, near the parts of the code that will handle those jobs...
+	_, _ = scheduler.AddJobOnceCallback(callback)
+
+	// After the plugin has added its callbacks, start the scheduler, which schedules all waiting jobs.
+	_ = scheduler.Start()
 
 	// main thread
 
+	// add a job
+	_, _ = scheduler.ScheduleOnce("the key i'm watching for", time.Now().Add(2*time.Hour))
+
 	// Maybe you want to check the scheduled jobs, or close them:
-	jobs, err := scheduler.ListScheduledJobs()
+	jobs, _ := scheduler.ListScheduledJobs()
 	defer func() {
 		for _, j := range jobs {
 			scheduler.Close(j.Key)

@@ -56,6 +56,9 @@ type JobOnce struct {
 	// the one calling job.Close)
 	join     chan bool
 	joinOnce sync.Once
+
+	storedCallbacks *syncedCallbacks
+	activeJobs      *syncedJobs
 }
 
 // Close terminates a scheduled job, preventing it from being scheduled on this plugin instance.
@@ -73,19 +76,21 @@ func (j *JobOnce) Close() {
 	})
 }
 
-func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time) (*JobOnce, error) {
+func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time, callbacks *syncedCallbacks, jobs *syncedJobs) (*JobOnce, error) {
 	mutex, err := NewMutex(pluginAPI, key)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create job mutex")
 	}
 
 	return &JobOnce{
-		pluginAPI:    pluginAPI,
-		clusterMutex: mutex,
-		key:          key,
-		runAt:        runAt,
-		done:         make(chan bool),
-		join:         make(chan bool),
+		pluginAPI:       pluginAPI,
+		clusterMutex:    mutex,
+		key:             key,
+		runAt:           runAt,
+		done:            make(chan bool),
+		join:            make(chan bool),
+		storedCallbacks: callbacks,
+		activeJobs:      jobs,
 	}, nil
 }
 
@@ -126,13 +131,19 @@ func (j *JobOnce) run() {
 				return
 			}
 
-			// Run the job
-			storedCallback.mu.Lock()
-			storedCallback.callback(j.key)
-			storedCallback.mu.Unlock()
+			j.executeJob()
 
 			j.closeHoldingMutex()
 		}()
+	}
+}
+
+func (j *JobOnce) executeJob() {
+	j.storedCallbacks.mu.Lock()
+	defer j.storedCallbacks.mu.Unlock()
+
+	for _, v := range j.storedCallbacks.callbacks {
+		v(j.key)
 	}
 }
 
@@ -185,14 +196,14 @@ func (j *JobOnce) saveMetadata() error {
 	return nil
 }
 
-// closeHoldingMutex assumes the job's mutex is held.
+// closeHoldingMutex assumes the caller holds the job's mutex.
 func (j *JobOnce) closeHoldingMutex() {
 	// remove the job from the kv store, if it exists
 	_ = j.pluginAPI.KVDelete(oncePrefix + j.key)
 
-	activeJobs.mu.Lock()
-	defer activeJobs.mu.Unlock()
-	delete(activeJobs.jobs, j.key)
+	j.activeJobs.mu.Lock()
+	defer j.activeJobs.mu.Unlock()
+	delete(j.activeJobs.jobs, j.key)
 
 	j.doneOnce.Do(func() {
 		close(j.done)

@@ -8,50 +8,96 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/pkg/errors"
 )
 
-type JobOnceScheduler struct {
-	pluginAPI JobPluginAPI
+type syncedCallbacks struct {
+	mu        sync.Mutex
+	callbacks map[string]func(string)
 }
 
-// To make things more predictable for clients of job once scheduler, the callback function will
-// be called only once at a time.
-var storedCallback struct {
-	mu       sync.Mutex
-	callback func(string)
-}
-
-var activeJobs = struct {
+type syncedJobs struct {
 	mu   sync.RWMutex
 	jobs map[string]*JobOnce
-}{
-	jobs: make(map[string]*JobOnce),
 }
 
-var startPollingOnce sync.Once
+type JobOnceScheduler struct {
+	pluginAPI JobPluginAPI
 
-// StartJobOnceScheduler sets the callback function, finds all previous ScheduleOnce jobs and starts
-// them running, and fires any jobs that have reached or exceeded their runAt time. Thus, even if a
-// cluster goes down and is restarted, StartJobOnceScheduler will restart previously scheduled jobs.
-func StartJobOnceScheduler(pluginAPI JobPluginAPI, callback func(string)) (*JobOnceScheduler, error) {
-	if err := setCallback(callback); err != nil {
-		return nil, err
-	}
+	startedMu sync.RWMutex
+	started   bool
 
-	scheduler := &JobOnceScheduler{
-		pluginAPI: pluginAPI,
-	}
+	activeJobs      *syncedJobs
+	storedCallbacks *syncedCallbacks
+}
 
-	if err := scheduler.scheduleNewJobsFromDB(); err != nil {
-		return nil, errors.Wrap(err, "could not start scheduler due to error")
-	}
+var schedulerOnce sync.Once
+var s *JobOnceScheduler
 
-	startPollingOnce.Do(func() {
-		go scheduler.pollForNewScheduledJobs()
+// GetJobOnceScheduler returns a scheduler which is ready to accept callbacks. Repeated calls will
+// return the same scheduler.
+func GetJobOnceScheduler(pluginAPI JobPluginAPI) *JobOnceScheduler {
+	schedulerOnce.Do(func() {
+		s = &JobOnceScheduler{
+			pluginAPI: pluginAPI,
+			activeJobs: &syncedJobs{
+				jobs: make(map[string]*JobOnce),
+			},
+			storedCallbacks: &syncedCallbacks{
+				callbacks: make(map[string]func(string)),
+			},
+		}
 	})
+	return s
+}
 
-	return scheduler, nil
+// Start finds all previous ScheduleOnce jobs and starts them running, and fires any jobs that have
+// reached or exceeded their runAt time. Thus, even if a cluster goes down and is restarted, Start
+// will restart previously scheduled jobs.
+func (s *JobOnceScheduler) Start() error {
+	s.startedMu.Lock()
+	defer s.startedMu.Unlock()
+	if s.started {
+		return errors.New("scheduler has already been started")
+	}
+
+	if err := s.verifyCallbackExists(); err != nil {
+		return err
+	}
+
+	if err := s.scheduleNewJobsFromDB(); err != nil {
+		return errors.Wrap(err, "could not start scheduler due to error")
+	}
+
+	go s.pollForNewScheduledJobs()
+
+	s.started = true
+
+	return nil
+}
+
+// AddJobOnceCallback adds a callback to the list. Each will be called with the job's id when the
+// job fires. Returns the id of the callback which can be used to remove the callback in
+// RemoveJobOnceCallback.
+func (s *JobOnceScheduler) AddJobOnceCallback(callback func(string)) (string, error) {
+	if callback == nil {
+		return "", errors.New("callback cannot be nil")
+	}
+
+	s.storedCallbacks.mu.Lock()
+	defer s.storedCallbacks.mu.Unlock()
+
+	id := model.NewId()
+	s.storedCallbacks.callbacks[id] = callback
+	return id, nil
+}
+
+// RemoveJobOnceCallback will remove a callback by its id.
+func (s *JobOnceScheduler) RemoveJobOnceCallback(id string) {
+	s.storedCallbacks.mu.Lock()
+	defer s.storedCallbacks.mu.Unlock()
+	delete(s.storedCallbacks.callbacks, id)
 }
 
 // ListScheduledJobs returns a list of the jobs in the db that have been scheduled. There is no
@@ -90,13 +136,22 @@ func (s *JobOnceScheduler) ListScheduledJobs() ([]JobOnceMetadata, error) {
 }
 
 // ScheduleOnce creates a scheduled job that will run once. When the clock reaches runAt, the
-// callback (set in StartJobOnceScheduler) will be called with key as the argument.
+// callback (set in Start) will be called with key as the argument.
 //
 // If the job key already exists in the db, this will return an error. To reschedule a job, first
-// close the original  then schedule the new one. For example: find the job in the list returned by
+// close the original then schedule the new one. For example: find the job in the list returned by
 // ListActiveJobs and call Close(key).
 func (s *JobOnceScheduler) ScheduleOnce(key string, runAt time.Time) (*JobOnce, error) {
-	job, err := newJobOnce(s.pluginAPI, key, runAt)
+	s.startedMu.RLock()
+	defer s.startedMu.RUnlock()
+	if !s.started {
+		return nil, errors.New("start the scheduler before adding jobs")
+	}
+	if err := s.verifyCallbackExists(); err != nil {
+		return nil, err
+	}
+
+	job, err := newJobOnce(s.pluginAPI, key, runAt, s.storedCallbacks, s.activeJobs)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create new job")
 	}
@@ -115,9 +170,9 @@ func (s *JobOnceScheduler) ScheduleOnce(key string, runAt time.Time) (*JobOnce, 
 func (s *JobOnceScheduler) Close(key string) {
 	// using an anonymous function because job.Close() below needs access to the activeJobs mutex
 	job := func() *JobOnce {
-		activeJobs.mu.RLock()
-		defer activeJobs.mu.RUnlock()
-		j, ok := activeJobs.jobs[key]
+		s.activeJobs.mu.RLock()
+		defer s.activeJobs.mu.RUnlock()
+		j, ok := s.activeJobs.jobs[key]
 		if ok {
 			return j
 		}
@@ -149,7 +204,7 @@ func (s *JobOnceScheduler) scheduleNewJobsFromDB() error {
 	}
 
 	for _, m := range scheduled {
-		job, err := newJobOnce(s.pluginAPI, m.Key, m.RunAt)
+		job, err := newJobOnce(s.pluginAPI, m.Key, m.RunAt, s.storedCallbacks, s.activeJobs)
 		if err != nil {
 			s.pluginAPI.LogError(errors.Wrap(err, "could not create new job for key: "+m.Key).Error())
 			continue
@@ -162,17 +217,17 @@ func (s *JobOnceScheduler) scheduleNewJobsFromDB() error {
 }
 
 func (s *JobOnceScheduler) runAndTrack(job *JobOnce) {
-	activeJobs.mu.Lock()
-	defer activeJobs.mu.Unlock()
+	s.activeJobs.mu.Lock()
+	defer s.activeJobs.mu.Unlock()
 
 	// has this been scheduled already on this server?
-	if _, ok := activeJobs.jobs[job.key]; ok {
+	if _, ok := s.activeJobs.jobs[job.key]; ok {
 		return
 	}
 
 	go job.run()
 
-	activeJobs.jobs[job.key] = job
+	s.activeJobs.jobs[job.key] = job
 }
 
 // pollForNewScheduledJobs will only be started once per plugin. It doesn't need to be stopped.
@@ -186,15 +241,12 @@ func (s *JobOnceScheduler) pollForNewScheduledJobs() {
 	}
 }
 
-func setCallback(callback func(string)) error {
-	storedCallback.mu.Lock()
-	defer storedCallback.mu.Unlock()
-	if storedCallback.callback != nil {
-		return errors.New("cannot start scheduler more than once")
+func (s *JobOnceScheduler) verifyCallbackExists() error {
+	s.storedCallbacks.mu.Lock()
+	defer s.storedCallbacks.mu.Unlock()
+
+	if len(s.storedCallbacks.callbacks) == 0 {
+		return errors.New("add callbacks before starting the scheduler")
 	}
-	if callback == nil {
-		return errors.New("callback cannot be nil")
-	}
-	storedCallback.callback = callback
 	return nil
 }

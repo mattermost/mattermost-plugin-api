@@ -72,6 +72,10 @@ func (pluginAPI *mockPluginAPI) KVDelete(key string) *model.AppError {
 		return &model.AppError{Message: "fake error"}
 	}
 
+	if pluginAPI.failingWithPrefix != "" && strings.HasPrefix(key, pluginAPI.failingWithPrefix) {
+		return &model.AppError{Message: "fake error for prefix " + pluginAPI.failingWithPrefix}
+	}
+
 	delete(pluginAPI.keyValues, key)
 
 	return nil
@@ -111,6 +115,10 @@ func (pluginAPI *mockPluginAPI) KVSetWithOptions(key string, value []byte, optio
 
 	if pluginAPI.failing {
 		return false, &model.AppError{Message: "fake error"}
+	}
+
+	if pluginAPI.failingWithPrefix != "" && strings.HasPrefix(key, pluginAPI.failingWithPrefix) {
+		return false, &model.AppError{Message: "fake error for prefix " + pluginAPI.failingWithPrefix}
 	}
 
 	if options.Atomic {
