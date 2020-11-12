@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -34,7 +33,6 @@ func TestScheduleOnceParallel(t *testing.T) {
 	callback := func(key string) {
 		switch key {
 		case jobKey1:
-			fmt.Println("<><> incrementing count1")
 			atomic.AddInt32(count1, 1)
 		case jobKey2:
 			atomic.AddInt32(count2, 1)
@@ -60,7 +58,12 @@ func TestScheduleOnceParallel(t *testing.T) {
 	}
 
 	s := GetJobOnceScheduler(mockPluginAPI)
-	_, err := s.AddCallback(callback)
+
+	// should error if we try to start without callback
+	err := s.Start()
+	require.Error(t, err)
+
+	err = s.SetCallback(callback)
 	require.NoError(t, err)
 	err = s.Start()
 	require.NoError(t, err)
@@ -215,90 +218,98 @@ func TestScheduleOnceParallel(t *testing.T) {
 		err = newScheduler.Start()
 		require.Error(t, err)
 	})
-
-	t.Run("adding two callbacks works, removing one works", func(t *testing.T) {
-		t.Parallel()
-
-		newKey1 := makeKey()
-		newCount1 := new(int32)
-
-		callback2 := func(key string) {
-			if key == newKey1 {
-				atomic.AddInt32(newCount1, 1)
-			}
-		}
-		callback3 := func(key string) {
-			if key == newKey1 {
-				atomic.AddInt32(newCount1, 1)
-			}
-		}
-
-		_, err := s.AddCallback(callback2)
-		require.NoError(t, err)
-		id3, err := s.AddCallback(callback3)
-		require.NoError(t, err)
-
-		_, err = s.ScheduleOnce(newKey1, time.Now().Add(50*time.Millisecond))
-		require.NoError(t, err)
-		time.Sleep(70*time.Millisecond + scheduleOnceJitter)
-		assert.Equal(t, int32(2), atomic.LoadInt32(newCount1))
-
-		s.RemoveCallback(id3)
-
-		_, err = s.ScheduleOnce(newKey1, time.Now().Add(50*time.Millisecond))
-		require.NoError(t, err)
-		time.Sleep(70*time.Millisecond + scheduleOnceJitter)
-		assert.Equal(t, int32(3), atomic.LoadInt32(newCount1))
-	})
 }
 
-func TestScheduleOnceStress(t *testing.T) {
+func TestScheduleOnceSequential(t *testing.T) {
 	makeKey := model.NewId
-
-	numPagingJobs := keysPerPage*3 + 2
-	testPagingJobs := make(map[string]*int32)
-	for i := 0; i < numPagingJobs; i++ {
-		testPagingJobs[makeKey()] = new(int32)
-	}
-
-	callback := func(key string) {
-		count, ok := testPagingJobs[key]
-		if ok {
-			atomic.AddInt32(count, 1)
-			return
-		}
-	}
 
 	// get the existing scheduler
 	s := GetJobOnceScheduler(newMockPluginAPI(t))
-
 	getVal := func(key string) []byte {
 		data, _ := s.pluginAPI.KVGet(key)
 		return data
 	}
 
-	// add the test paging jobs before starting scheduler
-	for k := range testPagingJobs {
-		assert.Empty(t, getVal(oncePrefix+k))
-		job, err := newJobOnce(s.pluginAPI, k, time.Now().Add(100*time.Millisecond), s.storedCallbacks, s.activeJobs)
-		require.NoError(t, err)
-		err = job.saveMetadata()
-		require.NoError(t, err)
-		assert.NotEmpty(t, getVal(oncePrefix+k))
+	resetScheduler := func() {
+		s.activeJobs.mu.Lock()
+		defer s.activeJobs.mu.Unlock()
+		s.storedCallback.mu.Lock()
+		defer s.storedCallback.mu.Unlock()
+		s.activeJobs.jobs = make(map[string]*JobOnce)
+		s.storedCallback.callback = nil
+		s.pluginAPI.(*mockPluginAPI).clear()
 	}
 
-	jobs, err := s.ListScheduledJobs()
-	require.NoError(t, err)
-	assert.Equal(t, len(testPagingJobs), len(jobs))
+	t.Run("starting the scheduler without a callback will return an error", func(t *testing.T) {
+		resetScheduler()
 
-	_, err = s.AddCallback(callback)
-	require.NoError(t, err)
+		err := s.Start()
+		require.Error(t, err)
+	})
 
-	// manually reschedule from the db:
-	err = s.scheduleNewJobsFromDB()
-	require.NoError(t, err)
+	t.Run("adding two callback works, only second one is called", func(t *testing.T) {
+		resetScheduler()
+
+		newCount2 := new(int32)
+		newCount3 := new(int32)
+
+		callback2 := func(key string) {
+			atomic.AddInt32(newCount2, 1)
+		}
+		callback3 := func(key string) {
+			atomic.AddInt32(newCount3, 1)
+		}
+
+		err := s.SetCallback(callback2)
+		require.NoError(t, err)
+		err = s.SetCallback(callback3)
+		require.NoError(t, err)
+
+		_, err = s.ScheduleOnce("anything", time.Now().Add(50*time.Millisecond))
+		require.NoError(t, err)
+		time.Sleep(70*time.Millisecond + scheduleOnceJitter)
+		assert.Equal(t, int32(0), atomic.LoadInt32(newCount2))
+		assert.Equal(t, int32(1), atomic.LoadInt32(newCount3))
+	})
 
 	t.Run("test paging keys from the db by inserting 3 pages of jobs and starting scheduler", func(t *testing.T) {
+		resetScheduler()
+
+		numPagingJobs := keysPerPage*3 + 2
+		testPagingJobs := make(map[string]*int32)
+		for i := 0; i < numPagingJobs; i++ {
+			testPagingJobs[makeKey()] = new(int32)
+		}
+
+		callback := func(key string) {
+			count, ok := testPagingJobs[key]
+			if ok {
+				atomic.AddInt32(count, 1)
+				return
+			}
+		}
+
+		// add the test paging jobs before starting scheduler
+		for k := range testPagingJobs {
+			assert.Empty(t, getVal(oncePrefix+k))
+			job, err := newJobOnce(s.pluginAPI, k, time.Now().Add(100*time.Millisecond), s.storedCallback, s.activeJobs)
+			require.NoError(t, err)
+			err = job.saveMetadata()
+			require.NoError(t, err)
+			assert.NotEmpty(t, getVal(oncePrefix+k))
+		}
+
+		jobs, err := s.ListScheduledJobs()
+		require.NoError(t, err)
+		assert.Equal(t, len(testPagingJobs), len(jobs))
+
+		err = s.SetCallback(callback)
+		require.NoError(t, err)
+
+		// manually reschedule from the db:
+		err = s.scheduleNewJobsFromDB()
+		require.NoError(t, err)
+
 		// wait for the testPagingJobs created in the setup to finish
 		time.Sleep(300 * time.Millisecond)
 
@@ -323,34 +334,6 @@ func TestScheduleOnceStress(t *testing.T) {
 		assert.Equal(t, 0, numActive)
 		assert.Equal(t, 0, numCountsAtZero)
 	})
-}
-
-func TestScheduleOnceSequential(t *testing.T) {
-	makeKey := model.NewId
-
-	// get the existing scheduler
-	s := GetJobOnceScheduler(newMockPluginAPI(t))
-	getVal := func(key string) []byte {
-		data, _ := s.pluginAPI.KVGet(key)
-		return data
-	}
-
-	resetScheduler := func() {
-		s.activeJobs.mu.Lock()
-		defer s.activeJobs.mu.Unlock()
-		s.storedCallbacks.mu.Lock()
-		defer s.storedCallbacks.mu.Unlock()
-		s.activeJobs.jobs = make(map[string]*JobOnce)
-		s.storedCallbacks.callbacks = make(map[string]func(string))
-		s.pluginAPI.(*mockPluginAPI).clear()
-	}
-
-	t.Run("starting the scheduler without a callback will return an error", func(t *testing.T) {
-		resetScheduler()
-
-		err := s.Start()
-		require.Error(t, err)
-	})
 
 	t.Run("failed at the db", func(t *testing.T) {
 		resetScheduler()
@@ -364,7 +347,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			}
 		}
 
-		_, err := s.AddCallback(callback)
+		err := s.SetCallback(callback)
 		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
@@ -404,11 +387,11 @@ func TestScheduleOnceSequential(t *testing.T) {
 				atomic.AddInt32(count, 1)
 			}
 		}
-		_, err2 := s.AddCallback(callback)
+		err2 := s.SetCallback(callback)
 		require.NoError(t, err2)
 
 		for k := range jobKeys {
-			job, err3 := newJobOnce(s.pluginAPI, k, time.Now().Add(100*time.Millisecond), s.storedCallbacks, s.activeJobs)
+			job, err3 := newJobOnce(s.pluginAPI, k, time.Now().Add(100*time.Millisecond), s.storedCallback, s.activeJobs)
 			require.NoError(t, err3)
 			err3 = job.saveMetadata()
 			require.NoError(t, err3)
@@ -449,7 +432,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			}
 		}
 
-		_, err := s.AddCallback(callback)
+		err := s.SetCallback(callback)
 		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
@@ -499,7 +482,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			}
 		}
 
-		_, err := s.AddCallback(callback)
+		err := s.SetCallback(callback)
 		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
