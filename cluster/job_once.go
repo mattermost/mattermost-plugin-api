@@ -48,7 +48,7 @@ type JobOnce struct {
 	runAt    time.Time
 	numFails int
 
-	// done signals the job.run goroutine to exit
+	// done signals the job.run go routine to exit
 	done     chan bool
 	doneOnce sync.Once
 
@@ -57,12 +57,12 @@ type JobOnce struct {
 	join     chan bool
 	joinOnce sync.Once
 
-	storedCallback *syncedCallback
-	activeJobs     *syncedJobs
+	storedCallbacks *syncedCallbacks
+	activeJobs      *syncedJobs
 }
 
-// Close terminates a scheduled job, preventing it from being scheduled on this plugin instance. It
-// also removes the job from the db, preventing it from being run in the future on other instances.
+// Close terminates a scheduled job, preventing it from being scheduled on this plugin instance.
+// It also removes the job from the db, preventing it from being run in the future.
 func (j *JobOnce) Close() {
 	// Acquire the corresponding job lock when modifying the db
 	j.clusterMutex.Lock()
@@ -76,21 +76,21 @@ func (j *JobOnce) Close() {
 	})
 }
 
-func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time, callback *syncedCallback, jobs *syncedJobs) (*JobOnce, error) {
+func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time, callbacks *syncedCallbacks, jobs *syncedJobs) (*JobOnce, error) {
 	mutex, err := NewMutex(pluginAPI, key)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create job mutex")
 	}
 
 	return &JobOnce{
-		pluginAPI:      pluginAPI,
-		clusterMutex:   mutex,
-		key:            key,
-		runAt:          runAt,
-		done:           make(chan bool),
-		join:           make(chan bool),
-		storedCallback: callback,
-		activeJobs:     jobs,
+		pluginAPI:       pluginAPI,
+		clusterMutex:    mutex,
+		key:             key,
+		runAt:           runAt,
+		done:            make(chan bool),
+		join:            make(chan bool),
+		storedCallbacks: callbacks,
+		activeJobs:      jobs,
 	}, nil
 }
 
@@ -139,10 +139,12 @@ func (j *JobOnce) run() {
 }
 
 func (j *JobOnce) executeJob() {
-	j.storedCallback.mu.Lock()
-	defer j.storedCallback.mu.Unlock()
+	j.storedCallbacks.mu.Lock()
+	defer j.storedCallbacks.mu.Unlock()
 
-	j.storedCallback.callback(j.key)
+	for _, v := range j.storedCallbacks.callbacks {
+		v(j.key)
+	}
 }
 
 // readMetadata reads the job's stored metadata. If the caller wishes to make an atomic
