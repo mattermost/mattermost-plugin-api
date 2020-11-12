@@ -42,7 +42,10 @@ func TestMemFootprint(t *testing.T) {
 		}
 
 		mockPluginAPI := newMockPluginAPI(t)
-		s, err := StartJobOnceScheduler(mockPluginAPI, callback)
+		s := GetJobOnceScheduler(mockPluginAPI)
+		err := s.SetCallback(callback)
+		require.NoError(t, err)
+		err = s.Start()
 		require.NoError(t, err)
 
 		getVal := func(key string) []byte {

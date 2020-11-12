@@ -233,10 +233,13 @@ func TestScheduleOnceSequential(t *testing.T) {
 	resetScheduler := func() {
 		s.activeJobs.mu.Lock()
 		defer s.activeJobs.mu.Unlock()
+		s.activeJobs.jobs = make(map[string]*JobOnce)
 		s.storedCallback.mu.Lock()
 		defer s.storedCallback.mu.Unlock()
-		s.activeJobs.jobs = make(map[string]*JobOnce)
 		s.storedCallback.callback = nil
+		s.startedMu.Lock()
+		defer s.startedMu.Unlock()
+		s.started = false
 		s.pluginAPI.(*mockPluginAPI).clear()
 	}
 
@@ -244,6 +247,17 @@ func TestScheduleOnceSequential(t *testing.T) {
 		resetScheduler()
 
 		err := s.Start()
+		require.Error(t, err)
+	})
+
+	t.Run("trying to schedule a job without starting will return an error", func(t *testing.T) {
+		resetScheduler()
+
+		callback := func(key string) {}
+		err := s.SetCallback(callback)
+		require.NoError(t, err)
+
+		_, err = s.ScheduleOnce("will fail", time.Now())
 		require.Error(t, err)
 	})
 
@@ -263,6 +277,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 		err := s.SetCallback(callback2)
 		require.NoError(t, err)
 		err = s.SetCallback(callback3)
+		require.NoError(t, err)
+		err = s.Start()
 		require.NoError(t, err)
 
 		_, err = s.ScheduleOnce("anything", time.Now().Add(50*time.Millisecond))
@@ -306,7 +322,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		err = s.SetCallback(callback)
 		require.NoError(t, err)
 
-		// manually reschedule from the db:
+		//  reschedule from the db:
 		err = s.scheduleNewJobsFromDB()
 		require.NoError(t, err)
 
@@ -349,6 +365,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 
 		err := s.SetCallback(callback)
 		require.NoError(t, err)
+		err = s.Start()
+		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
 		require.NoError(t, err)
@@ -387,8 +405,10 @@ func TestScheduleOnceSequential(t *testing.T) {
 				atomic.AddInt32(count, 1)
 			}
 		}
-		err2 := s.SetCallback(callback)
-		require.NoError(t, err2)
+		err := s.SetCallback(callback)
+		require.NoError(t, err)
+		err = s.Start()
+		require.NoError(t, err)
 
 		for k := range jobKeys {
 			job, err3 := newJobOnce(s.pluginAPI, k, time.Now().Add(100*time.Millisecond), s.storedCallback, s.activeJobs)
@@ -399,14 +419,14 @@ func TestScheduleOnceSequential(t *testing.T) {
 		}
 
 		// double checking they're in the db:
-		jobs, err2 := s.ListScheduledJobs()
-		require.NoError(t, err2)
+		jobs, err := s.ListScheduledJobs()
+		require.NoError(t, err)
 		require.Len(t, jobs, 3)
 
 		// simulate starting the plugin
-		require.NoError(t, err2)
-		err2 = s.scheduleNewJobsFromDB()
-		require.NoError(t, err2)
+		require.NoError(t, err)
+		err = s.scheduleNewJobsFromDB()
+		require.NoError(t, err)
 
 		time.Sleep(120*time.Millisecond + scheduleOnceJitter)
 
@@ -415,8 +435,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 			assert.Empty(t, s.activeJobs.jobs[k])
 			assert.Equal(t, int32(1), *v)
 		}
-		jobs, err2 = s.ListScheduledJobs()
-		require.NoError(t, err2)
+		jobs, err = s.ListScheduledJobs()
+		require.NoError(t, err)
 		require.Empty(t, jobs)
 	})
 
@@ -433,6 +453,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 		}
 
 		err := s.SetCallback(callback)
+		require.NoError(t, err)
+		err = s.Start()
 		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
@@ -483,6 +505,8 @@ func TestScheduleOnceSequential(t *testing.T) {
 		}
 
 		err := s.SetCallback(callback)
+		require.NoError(t, err)
+		err = s.Start()
 		require.NoError(t, err)
 
 		jobs, err := s.ListScheduledJobs()
