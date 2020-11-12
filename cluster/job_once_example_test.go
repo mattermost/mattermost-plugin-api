@@ -19,13 +19,13 @@ func ExampleScheduleOnce() {
 	// Get the scheduler, which you can pass throughout the plugin...
 	scheduler := GetJobOnceScheduler(pluginAPI)
 
-	// And add callback to, near the parts of the code that will handle those jobs...
+	// Set the plugin's callback handler
 	_ = scheduler.SetCallback(HandleJobOnceCalls)
 
-	// After the plugin has added its callback, start the scheduler, which schedules all waiting jobs.
+	// Now start the scheduler, which starts the poller and schedules all waiting jobs.
 	_ = scheduler.Start()
 
-	// main thread
+	// main thread...
 
 	// add a job
 	_, _ = scheduler.ScheduleOnce("the key i'm watching for", time.Now().Add(2*time.Hour))
