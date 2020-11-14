@@ -67,7 +67,7 @@ func (j *JobOnce) Close() {
 	j.clusterMutex.Lock()
 	defer j.clusterMutex.Unlock()
 
-	j.closeHoldingMutex()
+	j.closeWhileHoldingMutex()
 
 	// join the running goroutine
 	j.joinOnce.Do(func() {
@@ -115,7 +115,7 @@ func (j *JobOnce) run() {
 			if err != nil {
 				j.numFails++
 				if j.numFails > maxNumFails {
-					j.closeHoldingMutex()
+					j.closeWhileHoldingMutex()
 					return
 				}
 
@@ -126,13 +126,13 @@ func (j *JobOnce) run() {
 
 			// If key doesn't exist, the job has been completed already
 			if metadata == nil {
-				j.closeHoldingMutex()
+				j.closeWhileHoldingMutex()
 				return
 			}
 
 			j.executeJob()
 
-			j.closeHoldingMutex()
+			j.closeWhileHoldingMutex()
 		}()
 	}
 }
@@ -193,8 +193,8 @@ func (j *JobOnce) saveMetadata() error {
 	return nil
 }
 
-// closeHoldingMutex assumes the caller holds the job's mutex.
-func (j *JobOnce) closeHoldingMutex() {
+// closeWhileHoldingMutex assumes the caller holds the job's mutex.
+func (j *JobOnce) closeWhileHoldingMutex() {
 	// remove the job from the kv store, if it exists
 	_ = j.pluginAPI.KVDelete(oncePrefix + j.key)
 
