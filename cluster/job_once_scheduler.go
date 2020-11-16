@@ -62,7 +62,7 @@ func (s *JobOnceScheduler) Start() error {
 	}
 
 	if err := s.verifyCallbackExists(); err != nil {
-		return err
+		return errors.Wrap(err, "callback not found; cannot start scheduler")
 	}
 
 	if err := s.scheduleNewJobsFromDB(); err != nil {
