@@ -66,7 +66,7 @@ func (s *JobOnceScheduler) Start() error {
 	}
 
 	if err := s.scheduleNewJobsFromDB(); err != nil {
-		return errors.Wrap(err, "could not start scheduler due to error")
+		return errors.Wrap(err, "could not start JobOnceScheduler due to error")
 	}
 
 	go s.pollForNewScheduledJobs()
