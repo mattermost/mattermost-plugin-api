@@ -36,8 +36,8 @@ type JobOnceScheduler struct {
 var schedulerOnce sync.Once
 var s *JobOnceScheduler
 
-// GetJobOnceScheduler returns a scheduler which is ready to accept callbacks. Repeated calls will
-// return the same scheduler.
+// GetJobOnceScheduler returns a scheduler which is ready to have its callback set. Repeated
+// calls will return the same scheduler.
 func GetJobOnceScheduler(pluginAPI JobPluginAPI) *JobOnceScheduler {
 	schedulerOnce.Do(func() {
 		s = &JobOnceScheduler{
@@ -76,7 +76,7 @@ func (s *JobOnceScheduler) Start() error {
 	return nil
 }
 
-// SetCallback sets the scheduler's callback. When the job fires, the callback will be called with
+// SetCallback sets the scheduler's callback. When a job fires, the callback will be called with
 // the job's id.
 func (s *JobOnceScheduler) SetCallback(callback func(string)) error {
 	if callback == nil {
