@@ -92,7 +92,7 @@ func (s *JobOnceScheduler) SetCallback(callback func(string)) error {
 
 // ListScheduledJobs returns a list of the jobs in the db that have been scheduled. There is no
 // guarantee that list is accurate by the time the caller reads the list. E.g., the jobs in the list
-// may have been run, closed, or new jobs may have scheduled.
+// may have been run, cancelled, or new jobs may have scheduled.
 func (s *JobOnceScheduler) ListScheduledJobs() ([]JobOnceMetadata, error) {
 	var ret []JobOnceMetadata
 	for i := 0; ; i++ {
@@ -127,7 +127,7 @@ func (s *JobOnceScheduler) ListScheduledJobs() ([]JobOnceMetadata, error) {
 // callback will be called with key as the argument.
 //
 // If the job key already exists in the db, this will return an error. To reschedule a job, first
-// close the original then schedule it again.
+// cancel the original then schedule it again.
 func (s *JobOnceScheduler) ScheduleOnce(key string, runAt time.Time) (*JobOnce, error) {
 	s.startedMu.RLock()
 	defer s.startedMu.RUnlock()
@@ -149,9 +149,9 @@ func (s *JobOnceScheduler) ScheduleOnce(key string, runAt time.Time) (*JobOnce, 
 	return job, nil
 }
 
-// Close closes a job by its key. This is useful if the plugin lost the original *JobOnce, or
+// Cancel cancels a job by its key. This is useful if the plugin lost the original *JobOnce, or
 // is stopping a job found in ListScheduledJobs().
-func (s *JobOnceScheduler) Close(key string) {
+func (s *JobOnceScheduler) Cancel(key string) {
 	// using an anonymous function because job.Close() below needs access to the activeJobs mutex
 	job := func() *JobOnce {
 		s.activeJobs.mu.RLock()
@@ -161,12 +161,12 @@ func (s *JobOnceScheduler) Close(key string) {
 			return j
 		}
 
-		// Job wasn't active, so no need to call Close (which shuts down the goroutine).
-		// There's a condition where another server in the cluster started the job, and the
-		// current server hasn't polled for it yet. To solve that case, delete it from the db.
+		// Job wasn't active, so no need to call CancelWhileHoldingMutex (which shuts down the
+		// goroutine). There's a condition where another server in the cluster started the job, and
+		// the current server hasn't polled for it yet. To solve that case, delete it from the db.
 		mutex, err := NewMutex(s.pluginAPI, key)
 		if err != nil {
-			s.pluginAPI.LogError(errors.Wrap(err, "failed to create job mutex in Close for key: "+key).Error())
+			s.pluginAPI.LogError(errors.Wrap(err, "failed to create job mutex in Cancel for key: "+key).Error())
 		}
 		mutex.Lock()
 		defer mutex.Unlock()
@@ -177,7 +177,7 @@ func (s *JobOnceScheduler) Close(key string) {
 	}()
 
 	if job != nil {
-		job.Close()
+		job.Cancel()
 	}
 }
 

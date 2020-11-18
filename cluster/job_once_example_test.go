@@ -30,13 +30,14 @@ func ExampleScheduleOnce() {
 	// add a job
 	_, _ = scheduler.ScheduleOnce("the key i'm watching for", time.Now().Add(2*time.Hour))
 
-	// Maybe you want to check the scheduled jobs, or close them. This is completely optional--there
-	// is no need to close jobs, even if you are shutting down. Call Close only when you want to
-	// cancel a job. Closing a job will prevent it from running in the future on this or any server.
+	// Maybe you want to check the scheduled jobs, or cancel them. This is completely optional--there
+	// is no need to cancel jobs, even if you are shutting down. Call Cancel only when you want to
+	// cancel a future job. Cancelling a job will prevent it from running in the future on this or
+	// any server.
 	jobs, _ := scheduler.ListScheduledJobs()
 	defer func() {
 		for _, j := range jobs {
-			scheduler.Close(j.Key)
+			scheduler.Cancel(j.Key)
 		}
 	}()
 }

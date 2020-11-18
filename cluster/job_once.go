@@ -53,7 +53,7 @@ type JobOnce struct {
 	doneOnce sync.Once
 
 	// join is a join point for the job.run() goroutine to join the calling goroutine (in this case,
-	// the one calling job.Close)
+	// the one calling job.Cancel)
 	join     chan bool
 	joinOnce sync.Once
 
@@ -61,13 +61,13 @@ type JobOnce struct {
 	activeJobs     *syncedJobs
 }
 
-// Close terminates a scheduled job, preventing it from being scheduled on this plugin instance.
+// Cancel terminates a scheduled job, preventing it from being scheduled on this plugin instance.
 // It also removes the job from the db, preventing it from being run in the future.
-func (j *JobOnce) Close() {
+func (j *JobOnce) Cancel() {
 	j.clusterMutex.Lock()
 	defer j.clusterMutex.Unlock()
 
-	j.closeWhileHoldingMutex()
+	j.cancelWhileHoldingMutex()
 
 	// join the running goroutine
 	j.joinOnce.Do(func() {
@@ -115,7 +115,7 @@ func (j *JobOnce) run() {
 			if err != nil {
 				j.numFails++
 				if j.numFails > maxNumFails {
-					j.closeWhileHoldingMutex()
+					j.cancelWhileHoldingMutex()
 					return
 				}
 
@@ -126,13 +126,13 @@ func (j *JobOnce) run() {
 
 			// If key doesn't exist, the job has been completed already
 			if metadata == nil {
-				j.closeWhileHoldingMutex()
+				j.cancelWhileHoldingMutex()
 				return
 			}
 
 			j.executeJob()
 
-			j.closeWhileHoldingMutex()
+			j.cancelWhileHoldingMutex()
 		}()
 	}
 }
@@ -193,8 +193,8 @@ func (j *JobOnce) saveMetadata() error {
 	return nil
 }
 
-// closeWhileHoldingMutex assumes the caller holds the job's mutex.
-func (j *JobOnce) closeWhileHoldingMutex() {
+// cancelWhileHoldingMutex assumes the caller holds the job's mutex.
+func (j *JobOnce) cancelWhileHoldingMutex() {
 	// remove the job from the kv store, if it exists
 	_ = j.pluginAPI.KVDelete(oncePrefix + j.key)
 

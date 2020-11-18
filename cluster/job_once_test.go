@@ -87,11 +87,11 @@ func TestScheduleOnceParallel(t *testing.T) {
 		assert.Empty(t, s.activeJobs.jobs[jobKey1])
 		s.activeJobs.mu.RUnlock()
 
-		// It's okay to close jobs extra times, even if they're completed.
-		job.Close()
-		job.Close()
-		job.Close()
-		job.Close()
+		// It's okay to cancel jobs extra times, even if they're completed.
+		job.Cancel()
+		job.Cancel()
+		job.Cancel()
+		job.Cancel()
 
 		// Should have been called once
 		assert.Equal(t, int32(1), atomic.LoadInt32(count1))
@@ -105,7 +105,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey2))
 
-		job.Close()
+		job.Cancel()
 		assert.Empty(t, getVal(oncePrefix+jobKey2))
 		s.activeJobs.mu.RLock()
 		assert.Empty(t, s.activeJobs.jobs[jobKey2])
@@ -116,11 +116,11 @@ func TestScheduleOnceParallel(t *testing.T) {
 		// Should not have been called
 		assert.Equal(t, int32(0), atomic.LoadInt32(count2))
 
-		// It's okay to close jobs extra times, even if they're completed.
-		job.Close()
-		job.Close()
-		job.Close()
-		job.Close()
+		// It's okay to cancel jobs extra times, even if they're completed.
+		job.Cancel()
+		job.Cancel()
+		job.Cancel()
+		job.Cancel()
 	})
 
 	t.Run("failed at the plugin, job removed from db", func(t *testing.T) {
@@ -138,7 +138,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		s.activeJobs.mu.RUnlock()
 	})
 
-	t.Run("close and restart a job with the same key", func(t *testing.T) {
+	t.Run("cancel and restart a job with the same key", func(t *testing.T) {
 		t.Parallel()
 
 		job, err2 := s.ScheduleOnce(jobKey4, time.Now().Add(100*time.Millisecond))
@@ -146,7 +146,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey4))
 
-		job.Close()
+		job.Cancel()
 		assert.Empty(t, getVal(oncePrefix+jobKey4))
 		s.activeJobs.mu.RLock()
 		assert.Empty(t, s.activeJobs.jobs[jobKey4])
@@ -186,7 +186,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		}
 	})
 
-	t.Run("close a job by key name", func(t *testing.T) {
+	t.Run("cancel a job by key name", func(t *testing.T) {
 		t.Parallel()
 
 		job, err2 := s.ScheduleOnce(jobKey5, time.Now().Add(100*time.Millisecond))
@@ -197,15 +197,15 @@ func TestScheduleOnceParallel(t *testing.T) {
 		assert.NotEmpty(t, s.activeJobs.jobs[jobKey5])
 		s.activeJobs.mu.RUnlock()
 
-		s.Close(jobKey5)
+		s.Cancel(jobKey5)
 
 		assert.Empty(t, getVal(oncePrefix+jobKey5))
 		s.activeJobs.mu.RLock()
 		assert.Empty(t, s.activeJobs.jobs[jobKey5])
 		s.activeJobs.mu.RUnlock()
 
-		// close it again doesn't do anything:
-		s.Close(jobKey5)
+		// cancel it again doesn't do anything:
+		s.Cancel(jobKey5)
 
 		time.Sleep(150*time.Millisecond + scheduleOnceJitter)
 		assert.Equal(t, int32(0), atomic.LoadInt32(count5))
