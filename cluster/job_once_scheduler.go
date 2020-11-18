@@ -92,7 +92,7 @@ func (s *JobOnceScheduler) SetCallback(callback func(string)) error {
 
 // ListScheduledJobs returns a list of the jobs in the db that have been scheduled. There is no
 // guarantee that list is accurate by the time the caller reads the list. E.g., the jobs in the list
-// may have been run, cancelled, or new jobs may have scheduled.
+// may have been run, canceled, or new jobs may have scheduled.
 func (s *JobOnceScheduler) ListScheduledJobs() ([]JobOnceMetadata, error) {
 	var ret []JobOnceMetadata
 	for i := 0; ; i++ {
