@@ -26,6 +26,7 @@ type Client struct {
 	System        SystemService
 	Team          TeamService
 	User          UserService
+	AppsCache     AppsCacheService
 }
 
 // NewClient creates a new instance of Client.
@@ -54,5 +55,6 @@ func NewClient(api plugin.API) *Client {
 		System:        SystemService{api: api},
 		Team:          TeamService{api: api},
 		User:          UserService{api: api},
+		AppsCache:     AppsCacheService{api: api},
 	}
 }
