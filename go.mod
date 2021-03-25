@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/go-gorp/gorp v2.2.0+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/mock v1.4.4
@@ -17,10 +16,7 @@ require (
 	github.com/proullon/ramsql v0.0.0-20181213202341-817cee58a244
 	github.com/rudderlabs/analytics-go v3.3.1+incompatible
 	github.com/sirupsen/logrus v1.8.1
-	github.com/splitio/go-split-commons/v2 v2.0.1 // indirect
 	github.com/stretchr/testify v1.7.0
-	github.com/vmihailenco/tagparser v0.1.2 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/text v0.3.5
-	google.golang.org/appengine v1.6.6 // indirect
 )
