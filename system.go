@@ -74,7 +74,7 @@ func (s *SystemService) GetDiagnosticID() string {
 // RequestTrialLicense requests a trial license and installs it in the server.
 // If the server version is lower than 5.36.0, an error is returned.
 //
-// Minimum server version: 5.4
+// Minimum server version: 5.36
 func (s *SystemService) RequestTrialLicense(requesterID string, users int, termsAccepted, receiveEmailsAccepted bool) error {
 	currentVersion := semver.MustParse(s.api.GetServerVersion())
 	requiredVersion := semver.MustParse("5.36.0")
