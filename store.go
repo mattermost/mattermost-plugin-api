@@ -11,6 +11,7 @@ import (
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/mattermost/mattermost-server/v5/shared/driver"
 	"github.com/pkg/errors"
 )
 
@@ -18,7 +19,9 @@ import (
 type StoreService struct {
 	initialized bool
 	api         plugin.API
+	driver      plugin.Driver
 	mutex       sync.Mutex
+	version     int
 
 	masterDB  *sql.DB
 	replicaDB *sql.DB
@@ -91,8 +94,16 @@ func (s *StoreService) initialize() error {
 
 	config := s.api.GetUnsanitizedConfig()
 
+
+	var db *sql.DB
+	var err error
 	// Set up master db
-	db, err := setupConnection(*config.SqlSettings.DataSource, config.SqlSettings)
+	if s.version == 0 {
+		db, err = setupConnection(*config.SqlSettings.DataSource, config.SqlSettings)
+	} else {
+		db = sql.OpenDB(driver.NewConnector(s.driver, true))
+		err = db.Ping()
+	}
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to master db")
 	}
@@ -100,9 +111,13 @@ func (s *StoreService) initialize() error {
 
 	// Set up replica db
 	if len(config.SqlSettings.DataSourceReplicas) > 0 {
-		replicaSource := config.SqlSettings.DataSourceReplicas[0]
-
-		db, err := setupConnection(replicaSource, config.SqlSettings)
+		if s.version == 0 {
+			replicaSource := config.SqlSettings.DataSourceReplicas[0]
+			db, err = setupConnection(replicaSource, config.SqlSettings)
+		} else {
+			db = sql.OpenDB(driver.NewConnector(s.driver, false))
+			err = db.Ping()
+		}
 		if err != nil {
 			return errors.Wrap(err, "failed to connect to replica db")
 		}

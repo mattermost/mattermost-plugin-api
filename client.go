@@ -50,9 +50,41 @@ func NewClient(api plugin.API) *Client {
 		Plugin:        PluginService{api: api},
 		Post:          PostService{api: api},
 		Session:       SessionService{api: api},
-		Store:         &StoreService{api: api},
-		System:        SystemService{api: api},
-		Team:          TeamService{api: api},
-		User:          UserService{api: api},
+		Store: &StoreService{
+			api:     api,
+			version: 0,
+		},
+		System: SystemService{api: api},
+		Team:   TeamService{api: api},
+		User:   UserService{api: api},
+	}
+}
+
+func NewClient2(api plugin.API, driver plugin.Driver) *Client {
+	return &Client{
+		api: api,
+
+		Bot:           BotService{api: api},
+		Channel:       ChannelService{api: api},
+		Configuration: ConfigurationService{api: api},
+		SlashCommand:  SlashCommandService{api: api},
+		Emoji:         EmojiService{api: api},
+		File:          FileService{api: api},
+		Frontend:      FrontendService{api: api},
+		Group:         GroupService{api: api},
+		KV:            KVService{api: api},
+		Log:           LogService{api: api},
+		Mail:          MailService{api: api},
+		Plugin:        PluginService{api: api},
+		Post:          PostService{api: api},
+		Session:       SessionService{api: api},
+		Store: &StoreService{
+			api:     api,
+			driver:  driver,
+			version: 1,
+		},
+		System: SystemService{api: api},
+		Team:   TeamService{api: api},
+		User:   UserService{api: api},
 	}
 }
