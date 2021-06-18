@@ -94,7 +94,6 @@ func (s *StoreService) initialize() error {
 
 	config := s.api.GetUnsanitizedConfig()
 
-
 	var db *sql.DB
 	var err error
 	// Set up master db
