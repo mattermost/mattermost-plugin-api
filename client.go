@@ -31,8 +31,8 @@ type Client struct {
 // NewClient creates a new instance of Client.
 //
 // This client must only be created once per plugin to
-// prevent reacquiring of resources, such as database connections.
-func NewClient(api plugin.API) *Client {
+// prevent reacquiring of resources.
+func NewClient(api plugin.API, driver plugin.Driver) *Client {
 	return &Client{
 		api: api,
 
@@ -51,37 +51,8 @@ func NewClient(api plugin.API) *Client {
 		Post:          PostService{api: api},
 		Session:       SessionService{api: api},
 		Store: &StoreService{
-			api:     api,
-			version: 0,
-		},
-		System: SystemService{api: api},
-		Team:   TeamService{api: api},
-		User:   UserService{api: api},
-	}
-}
-
-func NewClient2(api plugin.API, driver plugin.Driver) *Client {
-	return &Client{
-		api: api,
-
-		Bot:           BotService{api: api},
-		Channel:       ChannelService{api: api},
-		Configuration: ConfigurationService{api: api},
-		SlashCommand:  SlashCommandService{api: api},
-		Emoji:         EmojiService{api: api},
-		File:          FileService{api: api},
-		Frontend:      FrontendService{api: api},
-		Group:         GroupService{api: api},
-		KV:            KVService{api: api},
-		Log:           LogService{api: api},
-		Mail:          MailService{api: api},
-		Plugin:        PluginService{api: api},
-		Post:          PostService{api: api},
-		Session:       SessionService{api: api},
-		Store: &StoreService{
-			api:     api,
-			driver:  driver,
-			version: 1,
+			api:    api,
+			driver: driver,
 		},
 		System: SystemService{api: api},
 		Team:   TeamService{api: api},

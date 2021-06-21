@@ -8,10 +8,9 @@ require (
 	github.com/golang/mock v1.4.4
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.2
-	github.com/mattermost/mattermost-server/v5 v5.3.2-0.20210617154022-79d4e9e9a96c
+	github.com/mattermost/mattermost-server/v5 v5.3.2-0.20210621071817-df224571d8a1
 	github.com/nicksnyder/go-i18n/v2 v2.0.3
 	github.com/pkg/errors v0.9.1
-	github.com/proullon/ramsql v0.0.0-20181213202341-817cee58a244
 	github.com/rudderlabs/analytics-go v3.3.1+incompatible
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
