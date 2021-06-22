@@ -88,7 +88,7 @@ func TestSetBotIconImage(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		api := &plugintest.API{}
 		defer api.AssertExpectations(t)
-		client := pluginapi.NewClient(api,&plugintest.Driver{})
+		client := pluginapi.NewClient(api, &plugintest.Driver{})
 
 		appErr := newAppError()
 

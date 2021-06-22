@@ -75,7 +75,7 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("replica db singleton", func(t *testing.T) {
-			config := &model.Config{
+		config := &model.Config{
 			SqlSettings: model.SqlSettings{
 				DriverName:                  model.NewString("ramsql"),
 				DataSource:                  model.NewString("TestStore-master-db"),
