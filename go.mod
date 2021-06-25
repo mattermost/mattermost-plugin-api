@@ -8,7 +8,7 @@ require (
 	github.com/golang/mock v1.4.4
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.2
-	github.com/mattermost/mattermost-server/v5 v5.3.2-0.20210621071817-df224571d8a1
+	github.com/mattermost/mattermost-server/v5 v5.3.2-0.20210625104438-e3ba1eb300fc
 	github.com/nicksnyder/go-i18n/v2 v2.0.3
 	github.com/pkg/errors v0.9.1
 	github.com/rudderlabs/analytics-go v3.3.1+incompatible
