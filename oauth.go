@@ -10,7 +10,7 @@ type OAuthService struct {
 	api plugin.API
 }
 
-// Create creates a new OAuth App,
+// Create creates a new OAuth App.
 //
 // Minimum server version: 5.38
 func (o *OAuthService) Create(app *model.OAuthApp) error {
@@ -24,7 +24,7 @@ func (o *OAuthService) Create(app *model.OAuthApp) error {
 	return nil
 }
 
-// Get gets an existing OAuth App.
+// Get gets an existing OAuth App by id.
 //
 // Minimum server version: 5.38
 func (o *OAuthService) Get(appID string) (*model.OAuthApp, error) {
@@ -33,7 +33,7 @@ func (o *OAuthService) Get(appID string) (*model.OAuthApp, error) {
 	return app, normalizeAppErr(appErr)
 }
 
-// Get gets an existing OAuth App by id.
+// Delete deletes an existing OAuth App by id.
 //
 // Minimum server version: 5.38
 func (o *OAuthService) Delete(appID string) error {

@@ -218,7 +218,7 @@ func (u *UserService) GetLDAPAttributes(userID string, attributes []string) (map
 	return ldapUserAttributes, normalizeAppErr(appErr)
 }
 
-// CreateAccessToken creates a new access token
+// CreateAccessToken creates a new access token.
 //
 // Minimum server version: 5.38
 func (u *UserService) CreateAccessToken(userID, description string) (*model.UserAccessToken, error) {
