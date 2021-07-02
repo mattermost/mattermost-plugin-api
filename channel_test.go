@@ -245,9 +245,9 @@ func TestCreateSidebarCategory(t *testing.T) {
 		defer api.AssertExpectations(t)
 		client := pluginapi.NewClient(api, &plugintest.Driver{})
 
-		inputCategory := model.SidebarCategoryWithChannels{}
+		category := model.SidebarCategoryWithChannels{}
 
-		api.On("CreateChannelSidebarCategory", "user_id", "team_id", &inputCategory).
+		api.On("CreateChannelSidebarCategory", "user_id", "team_id", &category).
 			Return(&model.SidebarCategoryWithChannels{
 				SidebarCategory: model.SidebarCategory{
 					Id:     "id",
@@ -257,14 +257,14 @@ func TestCreateSidebarCategory(t *testing.T) {
 				Channels: []string{"channelA", "channelB"}},
 				nil)
 
-		category, err := client.Channel.CreateSidebarCategory("user_id", "team_id", &inputCategory)
+		err := client.Channel.CreateSidebarCategory("user_id", "team_id", &category)
 
 		require.NoError(t, err)
 		require.Equal(t,
 			model.SidebarCategoryWithChannels{
 				SidebarCategory: model.SidebarCategory{Id: "id", UserId: "user_id", TeamId: "team_id"},
 				Channels:        []string{"channelA", "channelB"}},
-			*category)
+			category)
 	})
 
 	t.Run("failure", func(t *testing.T) {
@@ -278,7 +278,7 @@ func TestCreateSidebarCategory(t *testing.T) {
 		api.On("CreateChannelSidebarCategory", "user_id", "team_id", &inputCategory).
 			Return(&model.SidebarCategoryWithChannels{}, appErr)
 
-		_, err := client.Channel.CreateSidebarCategory("user_id", "team_id", &inputCategory)
+		err := client.Channel.CreateSidebarCategory("user_id", "team_id", &inputCategory)
 
 		require.Equal(t, appErr, err)
 	})
@@ -328,29 +328,28 @@ func TestUpdateSidebarCategories(t *testing.T) {
 		api := &plugintest.API{}
 		client := pluginapi.NewClient(api, &plugintest.Driver{})
 
-		inputCategories := []*model.SidebarCategoryWithChannels{
+		categories := []*model.SidebarCategoryWithChannels{
 			{
 				SidebarCategory: model.SidebarCategory{},
 				Channels:        nil,
 			},
 		}
-
-		api.On("UpdateChannelSidebarCategories", "user_id", "team_id", inputCategories).Return([]*model.SidebarCategoryWithChannels{
+		updatedCategories := []*model.SidebarCategoryWithChannels{
 			{
-				SidebarCategory: model.SidebarCategory{},
-				Channels:        []string{"channelA", "channelB"},
-			},
-		}, nil)
+				SidebarCategory: model.SidebarCategory{
+					Id:     "id",
+					UserId: "user_id",
+					TeamId: "team_id",
+				},
+				Channels: []string{"channelA", "channelB"},
+			}}
 
-		updatedCategory, err := client.Channel.UpdateSidebarCategories("user_id", "team_id", inputCategories)
+		api.On("UpdateChannelSidebarCategories", "user_id", "team_id", categories).Return(updatedCategories, nil)
+
+		err := client.Channel.UpdateSidebarCategories("user_id", "team_id", &categories)
 
 		require.NoError(t, err)
-		require.Equal(t, []*model.SidebarCategoryWithChannels{
-			{
-				SidebarCategory: model.SidebarCategory{},
-				Channels:        []string{"channelA", "channelB"},
-			},
-		}, updatedCategory)
+		require.EqualValues(t, updatedCategories, categories)
 	})
 
 	t.Run("failure", func(t *testing.T) {
@@ -367,7 +366,7 @@ func TestUpdateSidebarCategories(t *testing.T) {
 
 		api.On("UpdateChannelSidebarCategories", "user_id", "team_id", inputCategories).Return(nil, appErr)
 
-		_, err := client.Channel.UpdateSidebarCategories("user_id", "team_id", inputCategories)
+		err := client.Channel.UpdateSidebarCategories("user_id", "team_id", &inputCategories)
 
 		require.Equal(t, appErr, err)
 	})
