@@ -33,10 +33,10 @@ func (o *OAuthService) Get(appID string) (*model.OAuthApp, error) {
 	return app, normalizeAppErr(appErr)
 }
 
-// UpdateOAuthApp updates an existing OAuth App.
+// Update updates an existing OAuth App.
 //
 // Minimum server version: 5.38
-func (o *OAuthService) UpdateOAuthApp(app *model.OAuthApp) error {
+func (o *OAuthService) Update(app *model.OAuthApp) error {
 	updatedApp, appErr := o.api.UpdateOAuthApp(app)
 	if appErr != nil {
 		return normalizeAppErr(appErr)
