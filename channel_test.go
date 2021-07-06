@@ -346,7 +346,7 @@ func TestUpdateSidebarCategories(t *testing.T) {
 
 		api.On("UpdateChannelSidebarCategories", "user_id", "team_id", categories).Return(updatedCategories, nil)
 
-		err := client.Channel.UpdateSidebarCategories("user_id", "team_id", &categories)
+		err := client.Channel.UpdateSidebarCategories("user_id", "team_id", categories)
 
 		require.NoError(t, err)
 		require.EqualValues(t, updatedCategories, categories)
@@ -366,7 +366,7 @@ func TestUpdateSidebarCategories(t *testing.T) {
 
 		api.On("UpdateChannelSidebarCategories", "user_id", "team_id", inputCategories).Return(nil, appErr)
 
-		err := client.Channel.UpdateSidebarCategories("user_id", "team_id", &inputCategories)
+		err := client.Channel.UpdateSidebarCategories("user_id", "team_id", inputCategories)
 
 		require.Equal(t, appErr, err)
 	})
