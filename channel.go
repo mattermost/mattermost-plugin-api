@@ -244,12 +244,12 @@ func (c *ChannelService) GetSidebarCategories(userID, teamID string) (*model.Ord
 //
 // Minimum server version: 5.37
 func (c *ChannelService) UpdateSidebarCategories(
-	userID, teamID string, categories *[]*model.SidebarCategoryWithChannels) error {
-	updatedCategories, appErr := c.api.UpdateChannelSidebarCategories(userID, teamID, *categories)
+	userID, teamID string, categories []*model.SidebarCategoryWithChannels) error {
+	updatedCategories, appErr := c.api.UpdateChannelSidebarCategories(userID, teamID, categories)
 	if appErr != nil {
 		return normalizeAppErr(appErr)
 	}
-	*categories = updatedCategories
+	copy(categories, updatedCategories)
 
 	return nil
 }
