@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	"github.com/mattermost/mattermost-server/v5/model"
-	"github.com/mattermost/mattermost-server/v5/utils"
 	"github.com/pkg/errors"
 )
 
@@ -79,7 +78,7 @@ func (b *BotService) ensureBot(bot *model.Bot) (retBotID string, retErr error) {
 			var err error
 			var botIDBytes []byte
 
-			err = utils.ProgressiveRetry(func() error {
+			err = progressiveRetry(func() error {
 				botIDBytes, err = b.api.KVGet(botUserKey)
 				if err != nil {
 					return err
