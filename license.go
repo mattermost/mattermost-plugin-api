@@ -83,6 +83,28 @@ func IsE20LicensedOrDevelopment(config *model.Config, license *model.License) bo
 	return IsConfiguredForDevelopment(config)
 }
 
+// IsLicensedGreaterThanE10OrDevelopment returns true when the server is licensed with a legacy Mattermost
+// Enterprise E20 License, or a Mattermost Professional License, or a Mattermost Enterprise License,
+// or has `EnableDeveloper` and `EnableTesting` configuration settings enabled, signaling a non-production, developer mode.
+func IsLicensedGreaterThanE10OrDevelopment(config *model.Config, license *model.License) bool {
+	if license != nil && (license.SkuShortName == e20 || license.SkuShortName == professional || license.SkuShortName == enterprise) {
+		return true
+	}
+
+	if !isValidSkuShortName(license) {
+		// As a fallback for licenses whose SKU short name is unknown, make a best effort to try
+		// and use the presence of a known E20/Enterprise feature as a check to determine licensing.
+		if license != nil &&
+			license.Features != nil &&
+			license.Features.FutureFeatures != nil &&
+			*license.Features.FutureFeatures {
+			return true
+		}
+	}
+
+	return IsConfiguredForDevelopment(config)
+}
+
 // IsConfiguredForDevelopment returns true when the server has `EnableDeveloper` and `EnableTesting`
 // configuration settings enabled, signaling a non-production, developer mode.
 func IsConfiguredForDevelopment(config *model.Config) bool {
