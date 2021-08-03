@@ -183,19 +183,19 @@ func (s *JobOnceScheduler) Cancel(key string) {
 
 		s.pluginAPI.LogError("<><> Cancel for key, checking if KVDelete worked, trying to readmetadata")
 
-		metadata, err := readMetadata(j.pluginAPI, j.key)
+		metadata, err := readMetadata(s.pluginAPI, key)
 		if err != nil {
-			j.pluginAPI.LogError("<><> Cancel for key, readMetadata error", "key", j.key, "err", err)
+			s.pluginAPI.LogError("<><> Cancel for key, readMetadata error", "key", key, "err", err)
 			return nil
 		}
 
 		// If key doesn't exist, the job has been completed already
 		if metadata == nil {
-			j.pluginAPI.LogError("<><> Cancel for key, readMetadata was nil", "key", j.key)
+			s.pluginAPI.LogError("<><> Cancel for key, readMetadata was nil", "key", key)
 			return nil
 		}
 
-		j.pluginAPI.LogError("<><> Cancel for key, found metadata.", "key", j.key, "metadata", metadata)
+		s.pluginAPI.LogError("<><> Cancel for key, found metadata.", "key", key, "metadata", metadata)
 
 		return nil
 	}()
