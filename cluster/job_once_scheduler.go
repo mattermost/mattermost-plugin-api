@@ -152,31 +152,40 @@ func (s *JobOnceScheduler) ScheduleOnce(key string, runAt time.Time) (*JobOnce, 
 // Cancel cancels a job by its key. This is useful if the plugin lost the original *JobOnce, or
 // is stopping a job found in ListScheduledJobs().
 func (s *JobOnceScheduler) Cancel(key string) {
+	s.pluginAPI.LogError("<><> Cancel for key: %s", key)
 	// using an anonymous function because job.Close() below needs access to the activeJobs mutex
 	job := func() *JobOnce {
 		s.activeJobs.mu.RLock()
 		defer s.activeJobs.mu.RUnlock()
 		j, ok := s.activeJobs.jobs[key]
 		if ok {
+			s.pluginAPI.LogError("<><> Cancel for key: %s, found job in activeJobs", key)
 			return j
 		}
 
 		// Job wasn't active, so no need to call CancelWhileHoldingMutex (which shuts down the
 		// goroutine). There's a condition where another server in the cluster started the job, and
 		// the current server hasn't polled for it yet. To solve that case, delete it from the db.
+		s.pluginAPI.LogError("<><> Cancel for key: %s, did NOT find job in activeJobs. creating mutex", key)
 		mutex, err := NewMutex(s.pluginAPI, key)
 		if err != nil {
 			s.pluginAPI.LogError(errors.Wrap(err, "failed to create job mutex in Cancel for key: "+key).Error())
 		}
+		s.pluginAPI.LogError("<><> Cancel for key: %s, locking mutex", key)
 		mutex.Lock()
 		defer mutex.Unlock()
 
-		_ = s.pluginAPI.KVDelete(oncePrefix + key)
+		s.pluginAPI.LogError("<><> Cancel for key: %s, calling KVDelete on %s", key, oncePrefix+key)
+		err2 := s.pluginAPI.KVDelete(oncePrefix + key)
+		if err2 != nil {
+			s.pluginAPI.LogError("<><> Cancel for key: %s, got err: %v", key, err2)
+		}
 
 		return nil
 	}()
 
 	if job != nil {
+		s.pluginAPI.LogError("<><> Cancel for key: %s, found job in activeJobs. calling job.Cancel", key)
 		job.Cancel()
 	}
 }
