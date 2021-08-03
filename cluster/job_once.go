@@ -64,11 +64,11 @@ type JobOnce struct {
 // Cancel terminates a scheduled job, preventing it from being scheduled on this plugin instance.
 // It also removes the job from the db, preventing it from being run in the future.
 func (j *JobOnce) Cancel() {
-	s.pluginAPI.LogError("<><> jobOnce.Cancel in job: %s, locking clusteMutex", j.key)
+	s.pluginAPI.LogError("<><> jobOnce.Cancel, locking clusteMutex", "job", j.key)
 	j.clusterMutex.Lock()
 	defer j.clusterMutex.Unlock()
 
-	s.pluginAPI.LogError("<><> jobOnce.Cancel in job: %s, calling cancelWhileHoldingMutex", j.key)
+	s.pluginAPI.LogError("<><> jobOnce.Cancel, calling cancelWhileHoldingMutex", "job", j.key)
 	j.cancelWhileHoldingMutex()
 
 	// join the running goroutine
@@ -113,10 +113,10 @@ func (j *JobOnce) run() {
 			defer j.clusterMutex.Unlock()
 
 			// Check that the job has not been completed
-			j.pluginAPI.LogError("<><> jobOnce.run for key: %s, timer fired!  readMetadata", j.key)
+			j.pluginAPI.LogError("<><> jobOnce.run, timer fired!  readMetadata", "key", j.key)
 			metadata, err := readMetadata(j.pluginAPI, j.key)
 			if err != nil {
-				j.pluginAPI.LogError("<><> jobOnce.run for key %s, readMetadata error: %v", j.key, err)
+				j.pluginAPI.LogError("<><> jobOnce.run, readMetadata error", "key", j.key, "err", err)
 				j.numFails++
 				if j.numFails > maxNumFails {
 					j.cancelWhileHoldingMutex()
@@ -130,15 +130,15 @@ func (j *JobOnce) run() {
 
 			// If key doesn't exist, the job has been completed already
 			if metadata == nil {
-				j.pluginAPI.LogError("<><> jobOnce.run for key %s, readMetadata was nil. Now cancel while holding mutex", j.key)
+				j.pluginAPI.LogError("<><> jobOnce.run, readMetadata was nil. Now cancel while holding mutex", "key", j.key)
 				j.cancelWhileHoldingMutex()
 				return
 			}
 
-			j.pluginAPI.LogError("<><> jobOnce.run for key %s, executing job", j.key)
+			j.pluginAPI.LogError("<><> jobOnce.run, found metadata. executing job", "key", j.key, "metadata", metadata)
 			j.executeJob()
 
-			j.pluginAPI.LogError("<><> jobOnce.run for key %s, cancelWhileHoldingMutex", j.key)
+			j.pluginAPI.LogError("<><> jobOnce.run, cancelWhileHoldingMutex", "key", j.key)
 			j.cancelWhileHoldingMutex()
 		}()
 	}
@@ -154,10 +154,10 @@ func (j *JobOnce) executeJob() {
 // readMetadata reads the job's stored metadata. If the caller wishes to make an atomic
 // read/write, the cluster mutex for job's key should be held.
 func readMetadata(pluginAPI JobPluginAPI, key string) (*JobOnceMetadata, error) {
-	pluginAPI.LogError("<><> readMetadata for key %s", key)
+	pluginAPI.LogError("<><> readMetadata", "key", key)
 	data, appErr := pluginAPI.KVGet(oncePrefix + key)
 	if appErr != nil {
-		pluginAPI.LogError("<><> readMetadata error, failed to read data for key %s", key)
+		pluginAPI.LogError("<><> readMetadata error, failed to read data", "key", key)
 		return nil, errors.Wrap(normalizeAppErr(appErr), "failed to read data")
 	}
 
@@ -204,17 +204,17 @@ func (j *JobOnce) saveMetadata() error {
 
 // cancelWhileHoldingMutex assumes the caller holds the job's mutex.
 func (j *JobOnce) cancelWhileHoldingMutex() {
-	s.pluginAPI.LogError("<><> jobOnce.cancelWhileHoldingMutex in job: %s, calling pluginAPI.KVDelete key: %s", j.key, oncePrefix+j.key)
+	s.pluginAPI.LogError("<><> jobOnce.cancelWhileHoldingMutex, calling pluginAPI.KVDelete key", "key", j.key)
 
 	// remove the job from the kv store, if it exists
 	err := j.pluginAPI.KVDelete(oncePrefix + j.key)
 	if err != nil {
-		s.pluginAPI.LogError("<><> jobOnce.cancelWhileHoldingMutex in job: %s, got err: %v", j.key, err)
+		s.pluginAPI.LogError("<><> jobOnce.cancelWhileHoldingMutex, got err", "key", j.key, "err", err)
 	}
 
 	j.activeJobs.mu.Lock()
 	defer j.activeJobs.mu.Unlock()
-	s.pluginAPI.LogError("<><> jobOnce.cancelWhileHoldingMutex in job: %s, calling pluginAPI.KVDelete key: %s", j.key, oncePrefix+j.key)
+	s.pluginAPI.LogError("<><> jobOnce.cancelWhileHoldingMutex, calling pluginAPI.KVDelete", "key", j.key)
 	delete(j.activeJobs.jobs, j.key)
 
 	j.doneOnce.Do(func() {
