@@ -140,6 +140,9 @@ func (j *JobOnce) run() {
 
 			j.pluginAPI.LogError("<><> jobOnce.run, cancelWhileHoldingMutex", "key", j.key)
 			j.cancelWhileHoldingMutex()
+
+			j.pluginAPI.LogError("<><> jobOnce.run, trying readMetaDataDebug", "key", j.key)
+			readMetadataDebug(j.pluginAPI, j.key)
 		}()
 	}
 }
@@ -170,6 +173,29 @@ func readMetadata(pluginAPI JobPluginAPI, key string) (*JobOnceMetadata, error) 
 		return nil, errors.Wrap(err, "failed to decode data")
 	}
 
+	return &metadata, nil
+}
+
+// TODO: Remove me
+func readMetadataDebug(pluginAPI JobPluginAPI, key string) (*JobOnceMetadata, error) {
+	pluginAPI.LogError("<><> readMetadataDebug", "key", key)
+	data, appErr := pluginAPI.KVGet(oncePrefix + key)
+	if appErr != nil {
+		pluginAPI.LogError("<><> readMetadataDebug error, failed to read data", "key", key, "appErr", appErr)
+		return nil, errors.Wrap(normalizeAppErr(appErr), "failed to read data")
+	}
+
+	if data == nil {
+		pluginAPI.LogError("<><> readMetadataDebug, data was nil", "key", key)
+		return nil, nil
+	}
+
+	var metadata JobOnceMetadata
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, errors.Wrap(err, "failed to decode data")
+	}
+
+	pluginAPI.LogError("<><> readMetadataDebug, got metadata", "key", key, "metadata", metadata)
 	return &metadata, nil
 }
 

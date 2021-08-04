@@ -129,6 +129,7 @@ func (s *JobOnceScheduler) ListScheduledJobs() ([]JobOnceMetadata, error) {
 // If the job key already exists in the db, this will return an error. To reschedule a job, first
 // cancel the original then schedule it again.
 func (s *JobOnceScheduler) ScheduleOnce(key string, runAt time.Time) (*JobOnce, error) {
+	s.pluginAPI.LogError("<><> ScheduleOnce called", "key", key)
 	s.startedMu.RLock()
 	defer s.startedMu.RUnlock()
 	if !s.started {
@@ -181,21 +182,9 @@ func (s *JobOnceScheduler) Cancel(key string) {
 			s.pluginAPI.LogError("<><> Cancel for key, got err", "key", key, "err", err2)
 		}
 
-		s.pluginAPI.LogError("<><> Cancel for key, checking if KVDelete worked, trying to readmetadata")
+		s.pluginAPI.LogError("<><> Cancel for key, checking if KVDelete worked, trying to readMetadataDebug")
 
-		metadata, err := readMetadata(s.pluginAPI, key)
-		if err != nil {
-			s.pluginAPI.LogError("<><> Cancel for key, readMetadata error", "key", key, "err", err)
-			return nil
-		}
-
-		// If key doesn't exist, the job has been completed already
-		if metadata == nil {
-			s.pluginAPI.LogError("<><> Cancel for key, readMetadata was nil", "key", key)
-			return nil
-		}
-
-		s.pluginAPI.LogError("<><> Cancel for key, found metadata.", "key", key, "metadata", metadata)
+		readMetadataDebug(s.pluginAPI, key)
 
 		return nil
 	}()
