@@ -2,12 +2,12 @@ package cluster
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -548,7 +548,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		assert.Empty(t, s.activeJobs.jobs)
 	})
 
-	t.Run("simulate HA: cancelling and setting a job with a different time--old one shouldn't fire", func(t *testing.T) {
+	t.Run("simulate HA: canceling and setting a job with a different time--old one shouldn't fire", func(t *testing.T) {
 		resetScheduler()
 
 		key := makeKey()
@@ -603,7 +603,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		// Now "cancel" the original and make a new job with the same key but a different time.
 		// However, because we have only one list of synced jobs, we can't make two jobs with the
 		// same key. So we'll simulate this by changing the job metadata in the db. When the original
-		// job fires, it should see that the runAt is different, and it will think it has been cancelled.
+		// job fires, it should see that the runAt is different, and it will think it has been canceled.
 		err = setMetadata(key, JobOnceMetadata{
 			Key:   key,
 			RunAt: newRunAt,
