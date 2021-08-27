@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mattermost/mattermost-server/v5/model"
-	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
 )
 
@@ -217,6 +217,43 @@ func (c *ChannelService) UpdateChannelMemberNotifications(channelID, userID stri
 	return channelMember, normalizeAppErr(appErr)
 }
 
+// CreateSidebarCategory creates a new sidebar category for a set of channels.
+//
+// Minimum server version: 5.38
+func (c *ChannelService) CreateSidebarCategory(
+	userID, teamID string, newCategory *model.SidebarCategoryWithChannels) error {
+	category, appErr := c.api.CreateChannelSidebarCategory(userID, teamID, newCategory)
+	if appErr != nil {
+		return normalizeAppErr(appErr)
+	}
+	*newCategory = *category
+
+	return nil
+}
+
+// GetSidebarCategories returns sidebar categories.
+//
+// Minimum server version: 5.38
+func (c *ChannelService) GetSidebarCategories(userID, teamID string) (*model.OrderedSidebarCategories, error) {
+	categories, appErr := c.api.GetChannelSidebarCategories(userID, teamID)
+
+	return categories, normalizeAppErr(appErr)
+}
+
+// UpdateSidebarCategories updates the channel sidebar categories.
+//
+// Minimum server version: 5.38
+func (c *ChannelService) UpdateSidebarCategories(
+	userID, teamID string, categories []*model.SidebarCategoryWithChannels) error {
+	updatedCategories, appErr := c.api.UpdateChannelSidebarCategories(userID, teamID, categories)
+	if appErr != nil {
+		return normalizeAppErr(appErr)
+	}
+	copy(categories, updatedCategories)
+
+	return nil
+}
+
 func (c *ChannelService) waitForChannelCreation(channelID string) error {
 	if len(c.api.GetConfig().SqlSettings.DataSourceReplicas) == 0 {
 		return nil
@@ -238,14 +275,10 @@ func (c *ChannelService) waitForChannelCreation(channelID string) error {
 	return errors.Errorf("giving up waiting for channel creation, channelID=%s", channelID)
 }
 
-func channelMembersToChannelMemberSlice(cm *model.ChannelMembers) []*model.ChannelMember {
-	if cm == nil {
-		return nil
-	}
-
-	cmp := make([]*model.ChannelMember, len(*cm))
-	for i := 0; i < len(*cm); i++ {
-		cmp[i] = &(*cm)[i]
+func channelMembersToChannelMemberSlice(cm model.ChannelMembers) []*model.ChannelMember {
+	cmp := make([]*model.ChannelMember, len(cm))
+	for i := 0; i < len(cm); i++ {
+		cmp[i] = &(cm)[i]
 	}
 
 	return cmp

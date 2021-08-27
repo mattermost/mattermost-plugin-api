@@ -1,7 +1,9 @@
 package pluginapi
 
 import (
-	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/blang/semver/v4"
+	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/pkg/errors"
 )
 
 // Client is a streamlined wrapper over the mattermost plugin API.
@@ -12,6 +14,7 @@ type Client struct {
 	Configuration ConfigurationService
 	Channel       ChannelService
 	SlashCommand  SlashCommandService
+	OAuth         OAuthService
 	Emoji         EmojiService
 	File          FileService
 	Frontend      FrontendService
@@ -32,8 +35,8 @@ type Client struct {
 // NewClient creates a new instance of Client.
 //
 // This client must only be created once per plugin to
-// prevent reacquiring of resources, such as database connections.
-func NewClient(api plugin.API) *Client {
+// prevent reacquiring of resources.
+func NewClient(api plugin.API, driver plugin.Driver) *Client {
 	return &Client{
 		api: api,
 
@@ -41,6 +44,7 @@ func NewClient(api plugin.API) *Client {
 		Channel:       ChannelService{api: api},
 		Configuration: ConfigurationService{api: api},
 		SlashCommand:  SlashCommandService{api: api},
+		OAuth:         OAuthService{api: api},
 		Emoji:         EmojiService{api: api},
 		File:          FileService{api: api},
 		Frontend:      FrontendService{api: api},
@@ -51,10 +55,25 @@ func NewClient(api plugin.API) *Client {
 		Plugin:        PluginService{api: api},
 		Post:          PostService{api: api},
 		Session:       SessionService{api: api},
-		Store:         &StoreService{api: api},
-		System:        SystemService{api: api},
-		Team:          TeamService{api: api},
-		User:          UserService{api: api},
-		AppsCache:     AppsCacheService{api: api},
+		Store: &StoreService{
+			api:    api,
+			driver: driver,
+		},
+		System:    SystemService{api: api},
+		Team:      TeamService{api: api},
+		User:      UserService{api: api},
+		AppsCache: AppsCacheService{api: api},
 	}
+}
+
+func ensureServerVersion(api plugin.API, required string) error {
+	serverVersion := api.GetServerVersion()
+	currentVersion := semver.MustParse(serverVersion)
+	requiredVersion := semver.MustParse(required)
+
+	if currentVersion.LT(requiredVersion) {
+		return errors.Errorf("incompatible server version for plugin, minimum required version: %s, current version: %s", required, serverVersion)
+	}
+
+	return nil
 }

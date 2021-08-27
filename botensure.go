@@ -1,19 +1,15 @@
 package pluginapi
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
-	"github.com/blang/semver/v4"
-	"github.com/mattermost/mattermost-server/v5/model"
-	"github.com/mattermost/mattermost-server/v5/plugin"
-	"github.com/mattermost/mattermost-server/v5/utils"
+	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
 )
 
 type ensureBotOptions struct {
 	ProfileImagePath string
-	IconImagePath    string
 }
 
 type EnsureBotOption func(*ensureBotOptions)
@@ -24,36 +20,21 @@ func ProfileImagePath(path string) EnsureBotOption {
 	}
 }
 
-func IconImagePath(path string) EnsureBotOption {
-	return func(args *ensureBotOptions) {
-		args.IconImagePath = path
-	}
-}
-
-func (b *BotService) ensureServerVersion(required string) error {
-	serverVersion := b.api.GetServerVersion()
-	currentVersion := semver.MustParse(serverVersion)
-	requiredVersion := semver.MustParse(required)
-
-	if currentVersion.LT(requiredVersion) {
-		return errors.Errorf("incompatible server version for plugin, minimum required version: %s, current version: %s", required, serverVersion)
-	}
-	return nil
-}
-
 // EnsureBot either returns an existing bot user matching the given bot, or creates a bot user from the given bot.
 // A profile image or icon image may be optionally passed in to be set for the existing or newly created bot.
 // Returns the id of the resulting bot.
 //
 // Minimum server version: 5.10
 func (b *BotService) EnsureBot(bot *model.Bot, options ...EnsureBotOption) (retBotID string, retErr error) {
-	err := b.ensureServerVersion("5.10.0")
+	err := ensureServerVersion(b.api, "5.10.0")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to ensure bot")
 	}
 
 	// Default options
-	o := &ensureBotOptions{}
+	o := &ensureBotOptions{
+		ProfileImagePath: "",
+	}
 
 	for _, setter := range options {
 		setter(o)
@@ -64,10 +45,17 @@ func (b *BotService) EnsureBot(bot *model.Bot, options ...EnsureBotOption) (retB
 		return "", err
 	}
 
-	err = b.setBotImages(botID, o.ProfileImagePath, o.IconImagePath)
-	if err != nil {
-		return "", err
+	if o.ProfileImagePath != "" {
+		imageBytes, err := b.readFile(o.ProfileImagePath)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to read profile image")
+		}
+		appErr := b.api.SetProfileImage(botID, imageBytes)
+		if appErr != nil {
+			return "", errors.Wrap(appErr, "failed to set profile image")
+		}
 	}
+
 	return botID, nil
 }
 
@@ -88,8 +76,8 @@ func (b *BotService) ensureBot(bot *model.Bot) (retBotID string, retErr error) {
 			var err error
 			var botIDBytes []byte
 
-			err = utils.ProgressiveRetry(func() error {
-				botIDBytes, err = b.api.KVGet(plugin.BotUserKey)
+			err = progressiveRetry(func() error {
+				botIDBytes, err = b.api.KVGet(botUserKey)
 				if err != nil {
 					return err
 				}
@@ -103,7 +91,7 @@ func (b *BotService) ensureBot(bot *model.Bot) (retBotID string, retErr error) {
 		}
 	}()
 
-	botIDBytes, kvGetErr := b.api.KVGet(plugin.BotUserKey)
+	botIDBytes, kvGetErr := b.api.KVGet(botUserKey)
 	if kvGetErr != nil {
 		return "", errors.Wrap(kvGetErr, "failed to get bot")
 	}
@@ -129,7 +117,7 @@ func (b *BotService) ensureBot(bot *model.Bot) (retBotID string, retErr error) {
 	// Check for an existing bot user with that username. If one exists, then use that.
 	if user, userGetErr := b.api.GetUserByUsername(bot.Username); userGetErr == nil && user != nil {
 		if user.IsBot {
-			if kvSetErr := b.api.KVSet(plugin.BotUserKey, []byte(user.Id)); kvSetErr != nil {
+			if kvSetErr := b.api.KVSet(botUserKey, []byte(user.Id)); kvSetErr != nil {
 				b.api.LogWarn("Failed to set claimed bot user id.", "userid", user.Id, "err", kvSetErr)
 			}
 		} else {
@@ -152,35 +140,11 @@ func (b *BotService) ensureBot(bot *model.Bot) (retBotID string, retErr error) {
 		return "", errors.Wrap(createBotErr, "failed to create bot")
 	}
 
-	if kvSetErr := b.api.KVSet(plugin.BotUserKey, []byte(createdBot.UserId)); kvSetErr != nil {
+	if kvSetErr := b.api.KVSet(botUserKey, []byte(createdBot.UserId)); kvSetErr != nil {
 		b.api.LogWarn("Failed to set created bot user id.", "userid", createdBot.UserId, "err", kvSetErr)
 	}
 
 	return createdBot.UserId, nil
-}
-
-func (b *BotService) setBotImages(botID, profileImagePath, iconImagePath string) error {
-	if profileImagePath != "" {
-		imageBytes, err := b.readFile(profileImagePath)
-		if err != nil {
-			return errors.Wrap(err, "failed to read profile image")
-		}
-		appErr := b.api.SetProfileImage(botID, imageBytes)
-		if appErr != nil {
-			return errors.Wrap(appErr, "failed to set profile image")
-		}
-	}
-	if iconImagePath != "" {
-		imageBytes, err := b.readFile(iconImagePath)
-		if err != nil {
-			return errors.Wrap(err, "failed to read icon image")
-		}
-		appErr := b.api.SetBotIconImage(botID, imageBytes)
-		if appErr != nil {
-			return errors.Wrap(appErr, "failed to set icon image")
-		}
-	}
-	return nil
 }
 
 func (b *BotService) readFile(path string) ([]byte, error) {
@@ -189,9 +153,10 @@ func (b *BotService) readFile(path string) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed to get bundle path")
 	}
 
-	imageBytes, err := ioutil.ReadFile(filepath.Join(bundlePath, path))
+	imageBytes, err := os.ReadFile(filepath.Join(bundlePath, path))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read image")
 	}
+
 	return imageBytes, nil
 }

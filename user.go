@@ -5,8 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/mattermost/mattermost-server/v5/model"
-	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost-server/v6/plugin"
 )
 
 // UserService exposes methods to manipulate users.
@@ -216,4 +216,25 @@ func (u *UserService) GetLDAPAttributes(userID string, attributes []string) (map
 	ldapUserAttributes, appErr := u.api.GetLDAPUserAttributes(userID, attributes)
 
 	return ldapUserAttributes, normalizeAppErr(appErr)
+}
+
+// CreateAccessToken creates a new access token.
+//
+// Minimum server version: 5.38
+func (u *UserService) CreateAccessToken(userID, description string) (*model.UserAccessToken, error) {
+	token := &model.UserAccessToken{
+		UserId:      userID,
+		Description: description,
+	}
+
+	createdToken, appErr := u.api.CreateUserAccessToken(token)
+
+	return createdToken, normalizeAppErr(appErr)
+}
+
+// RevokeAccessToken revokes an existing access token.
+//
+// Minimum server version: 5.38
+func (u *UserService) RevokeAccessToken(tokenID string) error {
+	return normalizeAppErr(u.api.RevokeUserAccessToken(tokenID))
 }

@@ -3,7 +3,7 @@ package pluginapi_test
 import (
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 
-	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/mattermost/mattermost-server/v6/plugin"
 )
 
 type Plugin struct {
@@ -12,7 +12,7 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
-	p.client = pluginapi.NewClient(p.API)
+	p.client = pluginapi.NewClient(p.API, p.Driver)
 
 	return nil
 }
