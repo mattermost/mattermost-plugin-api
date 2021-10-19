@@ -83,7 +83,7 @@ func (s *SystemService) GetServerVersion() string {
 
 // IsEnterpriseReady returns true if the Mattermost server is configured as Enterprise Ready.
 //
-// Minimum server version: 5.10
+// Minimum server version: 6.1
 func (s *SystemService) IsEnterpriseReady() bool {
 	return s.api.IsEnterpriseReady()
 }
