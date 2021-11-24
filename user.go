@@ -206,6 +206,13 @@ func (u *UserService) HasPermissionToChannel(userID, channelID string, permissio
 	return u.api.HasPermissionToChannel(userID, channelID, permission)
 }
 
+// RolesGrantPermission check if the specified roles grant the specified permission
+//
+// Minimum server version: 6.3
+func (u *UserService) RolesGrantPermission(roleNames []string, permissionId string) bool {
+	return u.api.RolesGrantPermission(roleNames, permissionId)
+}
+
 // GetLDAPAttributes will return LDAP attributes for a user.
 // The attributes parameter should be a list of attributes to pull.
 // Returns a map with attribute names as keys and the user's attributes as values.
