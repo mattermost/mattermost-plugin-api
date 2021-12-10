@@ -6,6 +6,17 @@ import (
 
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-plugin-api/cluster"
+)
+
+type mutex interface {
+	Lock()
+	Unlock()
+}
+
+const (
+	botEnsureMutexKey = internalKeyPrefix + "bot_ensure"
 )
 
 type ensureBotOptions struct {
@@ -23,9 +34,19 @@ func ProfileImagePath(path string) EnsureBotOption {
 // EnsureBot either returns an existing bot user matching the given bot, or creates a bot user from the given bot.
 // A profile image or icon image may be optionally passed in to be set for the existing or newly created bot.
 // Returns the id of the resulting bot.
+// EnsureBot can safely be called multiple instances of a plugin concurrently.
 //
 // Minimum server version: 5.10
-func (b *BotService) EnsureBot(bot *model.Bot, options ...EnsureBotOption) (retBotID string, retErr error) {
+func (b *BotService) EnsureBot(bot *model.Bot, options ...EnsureBotOption) (string, error) {
+	m, err := cluster.NewMutex(b.api, botEnsureMutexKey)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create mutex")
+	}
+
+	return b.ensureBot(m, bot, options...)
+}
+
+func (b *BotService) ensureBot(m mutex, bot *model.Bot, options ...EnsureBotOption) (string, error) {
 	err := ensureServerVersion(b.api, "5.10.0")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to ensure bot")
@@ -40,7 +61,7 @@ func (b *BotService) EnsureBot(bot *model.Bot, options ...EnsureBotOption) (retB
 		setter(o)
 	}
 
-	botID, err := b.ensureBot(bot)
+	botID, err := b.ensureBotUser(m, bot)
 	if err != nil {
 		return "", err
 	}
@@ -59,7 +80,7 @@ func (b *BotService) EnsureBot(bot *model.Bot, options ...EnsureBotOption) (retB
 	return botID, nil
 }
 
-func (b *BotService) ensureBot(bot *model.Bot) (retBotID string, retErr error) {
+func (b *BotService) ensureBotUser(m mutex, bot *model.Bot) (retBotID string, retErr error) {
 	// Must provide a bot with a username
 	if bot == nil {
 		return "", errors.New("passed a nil bot")
@@ -90,6 +111,10 @@ func (b *BotService) ensureBot(bot *model.Bot) (retBotID string, retErr error) {
 			}
 		}
 	}()
+
+	// Lock to prevent two plugins from racing to create the bot account
+	m.Lock()
+	defer m.Unlock()
 
 	botIDBytes, kvGetErr := b.api.KVGet(botUserKey)
 	if kvGetErr != nil {
