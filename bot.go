@@ -4,10 +4,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mattermost/mattermost-plugin-api/cluster"
+	"github.com/pkg/errors"
+
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
-	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-plugin-api/cluster"
 )
 
 const (
