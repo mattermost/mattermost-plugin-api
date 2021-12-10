@@ -90,28 +90,6 @@ func (b *BotService) ensureBotUser(m mutex, bot *model.Bot) (retBotID string, re
 		return "", errors.New("passed a bot with no username")
 	}
 
-	// If we fail for any reason, this could be a race between creation of bot and
-	// retrieval from another EnsureBot. Just try the basic retrieve existing again.
-	defer func() {
-		if retBotID == "" || retErr != nil {
-			var err error
-			var botIDBytes []byte
-
-			err = progressiveRetry(func() error {
-				botIDBytes, err = b.api.KVGet(botUserKey)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-
-			if err == nil && botIDBytes != nil {
-				retBotID = string(botIDBytes)
-				retErr = nil
-			}
-		}
-	}()
-
 	// Lock to prevent two plugins from racing to create the bot account
 	m.Lock()
 	defer m.Unlock()
