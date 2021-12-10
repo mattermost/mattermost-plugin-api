@@ -21,7 +21,7 @@ check-style:
 
 ## Generates mock golang interfaces for testing
 mock:
-	go install github.com/golang/mock/mockgen
+	go install github.com/golang/mock/mockgen@v1.6
 	mockgen -destination experimental/panel/mocks/mock_panel.go -package mock_panel github.com/mattermost/mattermost-plugin-api/experimental/panel Panel
 	mockgen -destination experimental/panel/mocks/mock_panelStore.go -package mock_panel github.com/mattermost/mattermost-plugin-api/experimental/panel Store
 	mockgen -destination experimental/panel/mocks/mock_setting.go -package mock_panel github.com/mattermost/mattermost-plugin-api/experimental/panel/settings Setting
