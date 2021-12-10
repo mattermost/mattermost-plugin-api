@@ -86,7 +86,7 @@ func (b *BotService) ensureBotUser(m mutex, bot *model.Bot) (retBotID string, re
 		return "", errors.New("passed a nil bot")
 	}
 
-	if len(bot.Username) < 1 {
+	if bot.Username == "" {
 		return "", errors.New("passed a bot with no username")
 	}
 
@@ -118,10 +118,10 @@ func (b *BotService) ensureBotUser(m mutex, bot *model.Bot) (retBotID string, re
 	}
 
 	// Check for an existing bot user with that username. If one exists, then use that.
-	if user, userGetErr := b.api.GetUserByUsername(bot.Username); userGetErr == nil && user != nil {
+	if user, appErr := b.api.GetUserByUsername(bot.Username); appErr == nil && user != nil {
 		if user.IsBot {
-			if kvSetErr := b.api.KVSet(botUserKey, []byte(user.Id)); kvSetErr != nil {
-				b.api.LogWarn("Failed to set claimed bot user id.", "userid", user.Id, "err", kvSetErr)
+			if appErr := b.api.KVSet(botUserKey, []byte(user.Id)); appErr != nil {
+				b.api.LogWarn("Failed to set claimed bot user id.", "userid", user.Id, "err", appErr)
 			}
 		} else {
 			b.api.LogError("Plugin attempted to use an account that already exists. Convert user to a bot "+
@@ -138,13 +138,13 @@ func (b *BotService) ensureBotUser(m mutex, bot *model.Bot) (retBotID string, re
 	}
 
 	// Create a new bot user for the plugin
-	createdBot, createBotErr := b.api.CreateBot(bot)
-	if createBotErr != nil {
-		return "", errors.Wrap(createBotErr, "failed to create bot")
+	createdBot, appErr := b.api.CreateBot(bot)
+	if appErr != nil {
+		return "", errors.Wrap(appErr, "failed to create bot")
 	}
 
-	if kvSetErr := b.api.KVSet(botUserKey, []byte(createdBot.UserId)); kvSetErr != nil {
-		b.api.LogWarn("Failed to set created bot user id.", "userid", createdBot.UserId, "err", kvSetErr)
+	if appErr := b.api.KVSet(botUserKey, []byte(createdBot.UserId)); appErr != nil {
+		b.api.LogWarn("Failed to set created bot user id.", "userid", createdBot.UserId, "err", appErr)
 	}
 
 	return createdBot.UserId, nil
