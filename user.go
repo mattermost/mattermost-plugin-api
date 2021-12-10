@@ -3,7 +3,6 @@ package pluginapi
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
@@ -177,7 +176,7 @@ func (u *UserService) GetProfileImage(userID string) (io.Reader, error) {
 //
 // Minimum server version: 5.6
 func (u *UserService) SetProfileImage(userID string, content io.Reader) error {
-	contentBytes, err := ioutil.ReadAll(content)
+	contentBytes, err := io.ReadAll(content)
 	if err != nil {
 		return err
 	}
@@ -204,6 +203,13 @@ func (u *UserService) HasPermissionToTeam(userID, teamID string, permission *mod
 // Minimum server version: 5.3
 func (u *UserService) HasPermissionToChannel(userID, channelID string, permission *model.Permission) bool {
 	return u.api.HasPermissionToChannel(userID, channelID, permission)
+}
+
+// RolesGrantPermission check if the specified roles grant the specified permission
+//
+// Minimum server version: 6.3
+func (u *UserService) RolesGrantPermission(roleNames []string, permissionID string) bool {
+	return u.api.RolesGrantPermission(roleNames, permissionID)
 }
 
 // GetLDAPAttributes will return LDAP attributes for a user.
