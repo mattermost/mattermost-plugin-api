@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gorilla/mux"
+
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
 	"github.com/mattermost/mattermost-plugin-api/experimental/flow/steps"
