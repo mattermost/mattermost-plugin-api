@@ -7,21 +7,21 @@ import (
 type Flow interface {
 	Steps() []steps.Step
 	Step(i int) steps.Step
-	URL() string
+	Path() string
 	Length() int
 	FlowDone(userID string)
 }
 
 type flow struct {
 	steps      []steps.Step
-	url        string
+	path       string
 	onFlowDone func(userID string)
 }
 
-func NewFlow(stepList []steps.Step, url string, onFlowDone func(userID string)) Flow {
+func NewFlow(stepList []steps.Step, path string, onFlowDone func(userID string)) Flow {
 	f := &flow{
 		steps:      stepList,
-		url:        url,
+		path:       path,
 		onFlowDone: onFlowDone,
 	}
 	return f
@@ -41,8 +41,8 @@ func (f *flow) Step(i int) steps.Step {
 	return f.steps[i-1]
 }
 
-func (f *flow) URL() string {
-	return f.url
+func (f *flow) Path() string {
+	return f.path
 }
 
 func (f *flow) Length() int {

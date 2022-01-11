@@ -7,15 +7,36 @@ import (
 )
 
 const (
+	ContextStepKey     = "step"
+	ContextButtonIDKey = "button_id"
+
 	ContextPropertyKey    = "property"
 	ContextButtonValueKey = "button_value"
 	ContextOptionValueKey = "selected_option"
-	ContextStepKey        = "step"
 )
 
+type Action struct {
+	model.PostAction
+	OnClick func() (int, Attachment)
+	Dialog  *Dialog
+}
+type Attachment struct {
+	SlackAttachment *model.SlackAttachment
+	Actions         []Action
+}
+
+func (a *Attachment) ToSlackAttachment() *model.SlackAttachment {
+	ret := *a.SlackAttachment
+	for _, action := range a.Actions {
+		postAction := action.PostAction
+		ret.Actions = append(ret.Actions, &postAction)
+	}
+
+	return &ret
+}
+
 type Step interface {
-	PostSlackAttachment(flowHandler string, i int) *model.SlackAttachment
-	ResponseSlackAttachment(value interface{}) *model.SlackAttachment
+	Attachment() Attachment
 	GetPropertyName() string
 	ShouldSkip(value interface{}) int
 	IsEmpty() bool

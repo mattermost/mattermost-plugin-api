@@ -45,61 +45,50 @@ func NewSimpleStep(
 	}
 }
 
-func (s *simpleStep) PostSlackAttachment(flowHandler string, i int) *model.SlackAttachment {
-	trueValue, _ := json.Marshal(true)
-	falseValue, _ := json.Marshal(false)
-	stepValue, _ := json.Marshal(i)
-
-	actionTrue := model.PostAction{
-		Name: s.TrueButtonMessage,
-		Integration: &model.PostActionIntegration{
-			URL: flowHandler,
-			Context: map[string]interface{}{
-				ContextPropertyKey:    s.PropertyName,
-				ContextButtonValueKey: string(trueValue),
-				ContextStepKey:        string(stepValue),
-			},
+func (s *simpleStep) Attachment() Attachment {
+	actionTrue := Action{
+		PostAction: model.PostAction{
+			Type:     model.PostActionTypeButton,
+			Name:     s.TrueButtonMessage,
+			Disabled: false,
+		},
+		OnClick: func() (int, Attachment) {
+			return s.TrueSkip, Attachment{
+				SlackAttachment: &model.SlackAttachment{
+					Title:    s.Title,
+					Text:     s.TrueResponseMessage,
+					Fallback: fmt.Sprintf("%s: %s", s.Title, s.TrueResponseMessage),
+				}}
 		},
 	}
 
-	actionFalse := model.PostAction{
-		Name: s.FalseButtonMessage,
-		Integration: &model.PostActionIntegration{
-			URL: flowHandler,
-			Context: map[string]interface{}{
-				ContextPropertyKey:    s.PropertyName,
-				ContextButtonValueKey: string(falseValue),
-				ContextStepKey:        string(stepValue),
-			},
+	actionFalse := Action{
+		PostAction: model.PostAction{
+			Type:     model.PostActionTypeButton,
+			Name:     s.FalseButtonMessage,
+			Disabled: false,
+		},
+		OnClick: func() (int, Attachment) {
+			return s.FalseSkip, Attachment{
+				SlackAttachment: &model.SlackAttachment{
+					Title:    s.Title,
+					Text:     s.FalseResponseMessage,
+					Fallback: fmt.Sprintf("%s: %s", s.Title, s.FalseResponseMessage),
+				},
+			}
 		},
 	}
 
-	sa := model.SlackAttachment{
-		Title:    s.Title,
-		Text:     s.Message,
-		Fallback: fmt.Sprintf("%s: %s", s.Title, s.Message),
-		Actions:  []*model.PostAction{&actionTrue, &actionFalse},
+	a := Attachment{
+		SlackAttachment: &model.SlackAttachment{
+			Title:    s.Title,
+			Text:     s.Message,
+			Fallback: fmt.Sprintf("%s: %s", s.Title, s.Message),
+		},
+		Actions: []Action{actionTrue, actionFalse},
 	}
 
-	return &sa
-}
-
-func (s *simpleStep) ResponseSlackAttachment(rawValue interface{}) *model.SlackAttachment {
-	value := s.parseValue(rawValue)
-
-	message := s.FalseResponseMessage
-	if value {
-		message = s.TrueResponseMessage
-	}
-
-	sa := model.SlackAttachment{
-		Title:    s.Title,
-		Text:     message,
-		Fallback: fmt.Sprintf("%s: %s", s.Title, message),
-		Actions:  []*model.PostAction{},
-	}
-
-	return &sa
+	return a
 }
 
 func (s *simpleStep) GetPropertyName() string {

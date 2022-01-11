@@ -3,27 +3,34 @@ package flow
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/gorilla/mux"
+
+	"github.com/mattermost/mattermost-server/v6/model"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
 	"github.com/mattermost/mattermost-plugin-api/experimental/flow/steps"
 )
 
+type DialogCreater interface {
+	OpenInteractiveDialog(dialog model.OpenDialogRequest) error
+}
+
 type Controller interface {
 	Start(userID string) error
-	NextStep(userID string, from int, value interface{}) error
+	NextStep(userID string, from int, skip int) error
 	GetCurrentStep(userID string) (steps.Step, int, error)
-	GetHandlerURL() string
 	GetFlow() Flow
 	Cancel(userID string) error
 	SetProperty(userID, propertyName string, value interface{}) error
 }
 
 type flowController struct {
-	poster.Poster
 	logger.Logger
+	poster.Poster
+	DialogCreater
 	flow          Flow
 	store         Store
 	propertyStore PropertyStore
@@ -31,9 +38,10 @@ type flowController struct {
 }
 
 func NewFlowController(
-	p poster.Poster,
 	l logger.Logger,
 	r *mux.Router,
+	p poster.Poster,
+	d DialogCreater,
 	pluginURL string,
 	flow Flow,
 	flowStore Store,
@@ -42,6 +50,7 @@ func NewFlowController(
 	fc := &flowController{
 		Poster:        p,
 		Logger:        l,
+		DialogCreater: d,
 		flow:          flow,
 		store:         flowStore,
 		propertyStore: propertyStore,
@@ -79,11 +88,14 @@ func (fc *flowController) Start(userID string) error {
 	return fc.processStep(userID, 1)
 }
 
-func (fc *flowController) NextStep(userID string, from int, value interface{}) error {
+func (fc *flowController) NextStep(userID string, from, skip int) error {
 	stepIndex, err := fc.getFlowStep(userID)
 	if err != nil {
 		return err
 	}
+
+	log.Printf("from: %#+v\n", from)
+	log.Printf("skip: %#+v\n", skip)
 
 	if stepIndex != from {
 		// We are beyond the step we were supposed to come from, so we understand this step has already been processed.
@@ -91,15 +103,20 @@ func (fc *flowController) NextStep(userID string, from int, value interface{}) e
 		return nil
 	}
 
+	if skip == -1 {
+		// Stay at the current step
+		return nil
+	}
+
 	step := fc.flow.Step(stepIndex)
 
 	err = fc.store.RemovePostID(userID, step.GetPropertyName())
 	if err != nil {
-		fc.Logger.Debugf("error removing post id, %s", err.Error())
+		fc.Logger.WithError(err).Debugf("error removing post id")
 	}
 
-	skip := step.ShouldSkip(value)
 	stepIndex += 1 + skip
+	log.Printf("stepIndex: %#+v\n", stepIndex)
 	if stepIndex > fc.flow.Length() {
 		_ = fc.removeFlowStep(userID)
 		fc.flow.FlowDone(userID)
@@ -132,8 +149,37 @@ func (fc *flowController) GetCurrentStep(userID string) (steps.Step, int, error)
 	return step, index, nil
 }
 
-func (fc *flowController) GetHandlerURL() string {
-	return fc.pluginURL + fc.flow.URL()
+func (fc *flowController) getButtonHandlerURL() string {
+	return fc.pluginURL + fc.flow.Path() + "/button"
+}
+
+func (fc *flowController) getDialogHandlerURL() string {
+	return fc.pluginURL + fc.flow.Path() + "/dialog"
+}
+
+func (fc *flowController) toSlackAttachments(attachment steps.Attachment, stepNumber int) *model.SlackAttachment {
+	stepValue, _ := json.Marshal(stepNumber)
+
+	var updatedActions []steps.Action
+	for i, action := range attachment.Actions {
+		buttonNumber, _ := json.Marshal(i)
+
+		updatedAction := action
+
+		updatedAction.Integration = &model.PostActionIntegration{
+			URL: fc.getButtonHandlerURL(),
+			Context: map[string]interface{}{
+				steps.ContextStepKey:     string(stepValue),
+				steps.ContextButtonIDKey: string(buttonNumber),
+			},
+		}
+
+		updatedActions = append(updatedActions, updatedAction)
+	}
+
+	attachment.Actions = updatedActions
+
+	return attachment.ToSlackAttachment()
 }
 
 func (fc *flowController) Cancel(userID string) error {
@@ -186,15 +232,20 @@ func (fc *flowController) processStep(userID string, i int) error {
 		fc.Errorf("Store nil")
 	}
 
-	postID, err := fc.DMWithAttachments(userID, step.PostSlackAttachment(fc.GetHandlerURL(), i))
+	attachements := fc.toSlackAttachments(step.Attachment(), i)
+	postID, err := fc.DMWithAttachments(userID, attachements)
 	if err != nil {
 		return err
 	}
 
 	if step.IsEmpty() {
-		return fc.NextStep(userID, i, false)
+		return fc.NextStep(userID, i, 0)
 	}
 
+	log.Println("SetPostID")
+	log.Printf("userID: %#+v\n", userID)
+	log.Printf("step.GetPropertyName(): %#+v\n", step.GetPropertyName())
+	log.Printf("postID: %#+v\n", postID)
 	err = fc.store.SetPostID(userID, step.GetPropertyName(), postID)
 	if err != nil {
 		return err

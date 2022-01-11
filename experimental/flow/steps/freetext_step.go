@@ -26,7 +26,8 @@ func NewFreetextStep(
 	validate func(string) string,
 	r *mux.Router,
 	p poster.Poster,
-) Step {
+	//) Step {
+) *freetextStep {
 	return &freetextStep{
 		Title:        title,
 		Message:      message,
@@ -43,7 +44,7 @@ func NewFreetextStep(
 	}
 }
 
-func (s *freetextStep) PostSlackAttachment(flowHandler string, i int) *model.SlackAttachment {
+func (s *freetextStep) SlackAttachment(flowHandler string, i int) *model.SlackAttachment {
 	sa := model.SlackAttachment{
 		Title:    s.Title,
 		Text:     s.Message,
@@ -53,9 +54,9 @@ func (s *freetextStep) PostSlackAttachment(flowHandler string, i int) *model.Sla
 	return &sa
 }
 
-func (s *freetextStep) ResponseSlackAttachment(value interface{}) *model.SlackAttachment {
+func (s *freetextStep) OnClick(value interface{}) (*model.SlackAttachment, *model.Dialog) {
 	// Not used
-	return &model.SlackAttachment{}
+	return &model.SlackAttachment{}, nil
 }
 
 func (s *freetextStep) GetPropertyName() string {

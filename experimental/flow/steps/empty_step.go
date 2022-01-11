@@ -20,18 +20,16 @@ func NewEmptyStep(title, message string) Step {
 	}
 }
 
-func (s *emptyStep) PostSlackAttachment(flowHandler string, i int) *model.SlackAttachment {
-	sa := model.SlackAttachment{
-		Title:    s.Title,
-		Text:     s.Message,
-		Fallback: fmt.Sprintf("%s: %s", s.Title, s.Message),
+func (s *emptyStep) Attachment() Attachment {
+	sa := Attachment{
+		SlackAttachment: &model.SlackAttachment{
+			Title:    s.Title,
+			Text:     s.Message,
+			Fallback: fmt.Sprintf("%s: %s", s.Title, s.Message),
+		},
 	}
 
-	return &sa
-}
-
-func (s *emptyStep) ResponseSlackAttachment(value interface{}) *model.SlackAttachment {
-	return nil
+	return sa
 }
 
 func (s *emptyStep) GetPropertyName() string {

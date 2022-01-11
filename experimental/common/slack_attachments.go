@@ -14,3 +14,11 @@ func SlackAttachmentError(w http.ResponseWriter, errorMessage string) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
 }
+
+func DialogError(w http.ResponseWriter, err error) {
+	response := model.SubmitDialogResponse{
+		Error: err.Error(),
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
