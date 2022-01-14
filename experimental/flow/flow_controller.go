@@ -3,7 +3,6 @@ package flow
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/gorilla/mux"
 
@@ -94,9 +93,6 @@ func (fc *flowController) NextStep(userID string, from, skip int) error {
 		return err
 	}
 
-	log.Printf("from: %#+v\n", from)
-	log.Printf("skip: %#+v\n", skip)
-
 	if stepIndex != from {
 		// We are beyond the step we were supposed to come from, so we understand this step has already been processed.
 		// Used to avoid rapid firing on the Slack Attachments.
@@ -116,7 +112,6 @@ func (fc *flowController) NextStep(userID string, from, skip int) error {
 	}
 
 	stepIndex += 1 + skip
-	log.Printf("stepIndex: %#+v\n", stepIndex)
 	if stepIndex > fc.flow.Length() {
 		_ = fc.removeFlowStep(userID)
 		fc.flow.FlowDone(userID)
@@ -160,11 +155,11 @@ func (fc *flowController) getDialogHandlerURL() string {
 func (fc *flowController) toSlackAttachments(attachment steps.Attachment, stepNumber int) *model.SlackAttachment {
 	stepValue, _ := json.Marshal(stepNumber)
 
-	var updatedActions []steps.Action
-	for i, action := range attachment.Actions {
+	updatedActions := make([]steps.Action, len(attachment.Actions))
+	for i := 0; i < len(attachment.Actions); i++ {
 		buttonNumber, _ := json.Marshal(i)
 
-		updatedAction := action
+		updatedAction := attachment.Actions[i]
 
 		updatedAction.Integration = &model.PostActionIntegration{
 			URL: fc.getButtonHandlerURL(),
@@ -174,7 +169,7 @@ func (fc *flowController) toSlackAttachments(attachment steps.Attachment, stepNu
 			},
 		}
 
-		updatedActions = append(updatedActions, updatedAction)
+		updatedActions[i] = updatedAction
 	}
 
 	attachment.Actions = updatedActions
@@ -242,10 +237,6 @@ func (fc *flowController) processStep(userID string, i int) error {
 		return fc.NextStep(userID, i, 0)
 	}
 
-	log.Println("SetPostID")
-	log.Printf("userID: %#+v\n", userID)
-	log.Printf("step.GetPropertyName(): %#+v\n", step.GetPropertyName())
-	log.Printf("postID: %#+v\n", postID)
 	err = fc.store.SetPostID(userID, step.GetPropertyName(), postID)
 	if err != nil {
 		return err

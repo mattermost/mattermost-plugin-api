@@ -158,7 +158,7 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	skip, attachment, resposeError, resposeErrors := actions[buttonNumber].Dialog.OnDialogSubmit(request.Submission)
+	skip, attachment, resposeError, resposeErrors := actions[buttonNumber].Dialog.OnDialogSubmit(request.UserId, request.Submission)
 
 	response := model.SubmitDialogResponse{
 		Error:  resposeError,

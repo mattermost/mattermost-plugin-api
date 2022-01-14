@@ -27,9 +27,11 @@ type Attachment struct {
 
 func (a *Attachment) ToSlackAttachment() *model.SlackAttachment {
 	ret := *a.SlackAttachment
-	for _, action := range a.Actions {
-		postAction := action.PostAction
-		ret.Actions = append(ret.Actions, &postAction)
+	ret.Actions = make([]*model.PostAction, len(a.Actions))
+
+	for i := 0; i < len(a.Actions); i++ {
+		postAction := a.Actions[i].PostAction
+		ret.Actions[i] = &postAction
 	}
 
 	return &ret

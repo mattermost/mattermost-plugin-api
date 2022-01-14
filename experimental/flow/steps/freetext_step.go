@@ -26,7 +26,8 @@ func NewFreetextStep(
 	validate func(string) string,
 	r *mux.Router,
 	p poster.Poster,
-	//) Step {
+	//TODO: Fix?
+	// ) Step {
 ) *freetextStep {
 	return &freetextStep{
 		Title:        title,

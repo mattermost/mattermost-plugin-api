@@ -141,8 +141,8 @@ func (s *customStep) getActions() []Action {
 			action.Dialog = &Dialog{
 				Dialog: dialog.Dialog,
 
-				OnDialogSubmit: func(submission map[string]interface{}) (int, *Attachment, string, map[string]string) {
-					skip, _, resposeError, resposeErrors := dialog.OnDialogSubmit(submission)
+				OnDialogSubmit: func(userID string, submission map[string]interface{}) (int, *Attachment, string, map[string]string) {
+					skip, _, resposeError, resposeErrors := dialog.OnDialogSubmit(userID, submission)
 
 					var newActions []Action
 					if skip == -1 || resposeError != "" || len(resposeErrors) != 0 {
