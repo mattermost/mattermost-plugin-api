@@ -20,7 +20,7 @@ func NewEmptyStep(title, message string) Step {
 	}
 }
 
-func (s *emptyStep) Attachment() Attachment {
+func (s *emptyStep) Attachment(pluginURL string) Attachment {
 	sa := Attachment{
 		SlackAttachment: &model.SlackAttachment{
 			Title:    s.Title,

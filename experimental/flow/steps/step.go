@@ -17,7 +17,7 @@ const (
 
 type Action struct {
 	model.PostAction
-	OnClick func() (int, Attachment)
+	OnClick func(userID string) (int, Attachment)
 	Dialog  *Dialog
 }
 type Attachment struct {
@@ -38,7 +38,7 @@ func (a *Attachment) ToSlackAttachment() *model.SlackAttachment {
 }
 
 type Step interface {
-	Attachment() Attachment
+	Attachment(pluginURL string) Attachment
 	GetPropertyName() string
 	ShouldSkip(value interface{}) int
 	IsEmpty() bool

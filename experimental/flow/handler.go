@@ -78,14 +78,14 @@ func (fh *fh) handleFlowButton(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actions := step.Attachment().Actions
+	actions := step.Attachment(fh.fc.pluginURL).Actions
 	if buttonNumber > len(actions)-1 {
 		common.SlackAttachmentError(w, "Error: button number to high")
 		return
 	}
 
 	action := actions[buttonNumber]
-	skip, attachment := action.OnClick()
+	skip, attachment := action.OnClick(userID)
 
 	response := model.PostActionIntegrationResponse{}
 	post := &model.Post{}
@@ -152,7 +152,7 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actions := step.Attachment().Actions
+	actions := step.Attachment(fh.fc.pluginURL).Actions
 	if buttonNumber > len(actions)-1 {
 		common.SlackAttachmentError(w, "Error: button number to high")
 		return
@@ -166,7 +166,8 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if attachment != nil {
-		postID, err := fh.fc.store.GetPostID(userID, step.GetPropertyName())
+		var postID string
+		postID, err = fh.fc.store.GetPostID(userID, step.GetPropertyName())
 		if err != nil {
 			common.DialogError(w, errors.Wrap(err, "Failed to get post"))
 			return
@@ -179,8 +180,8 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 		model.ParseSlackAttachment(post, []*model.SlackAttachment{fh.fc.toSlackAttachments(*attachment, stepNumber)})
 		err = fh.fc.UpdatePost(post)
 		if err != nil {
-			common.DialogError(w, errors.Wrap(err, "Failed to update post"))
-			return
+			//common.DialogError(w, errors.Wrap(err, "Failed to update post"))
+			//return
 		}
 	}
 

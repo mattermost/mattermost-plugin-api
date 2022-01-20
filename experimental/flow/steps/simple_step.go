@@ -45,14 +45,14 @@ func NewSimpleStep(
 	}
 }
 
-func (s *simpleStep) Attachment() Attachment {
+func (s *simpleStep) Attachment(pluginURL string) Attachment {
 	actionTrue := Action{
 		PostAction: model.PostAction{
 			Type:     model.PostActionTypeButton,
 			Name:     s.TrueButtonMessage,
 			Disabled: false,
 		},
-		OnClick: func() (int, Attachment) {
+		OnClick: func(userID string) (int, Attachment) {
 			return s.TrueSkip, Attachment{
 				SlackAttachment: &model.SlackAttachment{
 					Title:    s.Title,
@@ -68,7 +68,7 @@ func (s *simpleStep) Attachment() Attachment {
 			Name:     s.FalseButtonMessage,
 			Disabled: false,
 		},
-		OnClick: func() (int, Attachment) {
+		OnClick: func(userID string) (int, Attachment) {
 			return s.FalseSkip, Attachment{
 				SlackAttachment: &model.SlackAttachment{
 					Title:    s.Title,

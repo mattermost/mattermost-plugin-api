@@ -3,6 +3,7 @@ package steps
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -26,7 +27,7 @@ type Button struct {
 	Name     string
 	Disabled bool
 	Style    ButtonStyle
-	OnClick  func() int
+	OnClick  func(userID string) int
 
 	Dialog *Dialog
 }
@@ -38,21 +39,33 @@ type customStepBuilder struct {
 func NewCustomStepBuilder(title, message string) *customStepBuilder {
 	return &customStepBuilder{
 		step: customStep{
-			ID:      model.NewId(),
-			Title:   title,
-			Message: message,
+			property: model.NewId(),
+			title:    title,
+			message:  message,
 		},
 	}
 }
 
 func (b *customStepBuilder) WithButton(button Button) *customStepBuilder {
-	b.step.Buttons = append(b.step.Buttons, button)
+	b.step.buttons = append(b.step.buttons, button)
 
 	return b
 }
 
 func (b *customStepBuilder) WithPretext(text string) *customStepBuilder {
-	b.step.Pretext = text
+	b.step.pretext = text
+
+	return b
+}
+
+func (b *customStepBuilder) WithImage(path string) *customStepBuilder {
+	b.step.imagePath = strings.TrimPrefix(path, "/")
+
+	return b
+}
+
+func (b *customStepBuilder) IsNotEmpty() *customStepBuilder {
+	b.step.IsNotEmpty = true
 
 	return b
 }
@@ -62,37 +75,48 @@ func (b *customStepBuilder) Build() Step {
 }
 
 type customStep struct {
-	ID      string
-	Title   string
-	Message string
+	property string
+	title    string
+	message  string
 
-	Pretext string
-	Buttons []Button
+	pretext   string
+	imagePath string
+	buttons   []Button
 
-	PropertyName string
+	IsNotEmpty bool
 }
 
-func (s *customStep) Attachment() Attachment {
+func (s *customStep) Attachment(pluginURL string) Attachment {
 	a := Attachment{
-		SlackAttachment: &model.SlackAttachment{
-			Pretext:  s.Pretext,
-			Title:    s.Title,
-			Text:     s.Message,
-			Fallback: fmt.Sprintf("%s: %s", s.Title, s.Message),
-		},
-		Actions: s.getActions(),
+		SlackAttachment: s.getAttachment(pluginURL),
+		Actions:         s.getActions(pluginURL),
 	}
 
 	return a
 }
 
-func (s *customStep) getActions() []Action {
-	if s.Buttons == nil {
+func (s *customStep) getAttachment(pluginURL string) *model.SlackAttachment {
+	attachment := &model.SlackAttachment{
+		Pretext:  s.pretext,
+		Title:    s.title,
+		Text:     s.message,
+		Fallback: fmt.Sprintf("%s: %s", s.title, s.message),
+	}
+
+	if s.imagePath != "" {
+		attachment.ImageURL = pluginURL + "/" + s.imagePath
+	}
+
+	return attachment
+}
+
+func (s *customStep) getActions(pluginURL string) []Action {
+	if s.buttons == nil {
 		return nil
 	}
 
 	var actions []Action
-	for i, b := range s.Buttons {
+	for i, b := range s.buttons {
 		onClick := b.OnClick
 		j := i
 
@@ -105,32 +129,27 @@ func (s *customStep) getActions() []Action {
 				Disabled: b.Disabled,
 				Style:    string(b.Style),
 			},
-			OnClick: func() (int, Attachment) {
+			OnClick: func(userID string) (int, Attachment) {
 				skip := 0
 				if onClick != nil {
-					skip = onClick()
+					skip = onClick(userID)
 				}
 
 				var newActions []Action
 				if skip == -1 {
 					// Keep full list
-					newActions = s.getActions()
+					newActions = s.getActions(pluginURL)
 				} else {
 					// Only list the selected one
-					action := s.getActions()[j]
+					action := s.getActions(pluginURL)[j]
 					action.Disabled = true
 
 					newActions = []Action{action}
 				}
 
 				attachment := Attachment{
-					SlackAttachment: &model.SlackAttachment{
-						Pretext:  s.Pretext,
-						Title:    s.Title,
-						Text:     s.Message,
-						Fallback: fmt.Sprintf("%s: %s", s.Title, s.Message),
-					},
-					Actions: newActions,
+					SlackAttachment: s.getAttachment(pluginURL),
+					Actions:         newActions,
 				}
 
 				return skip, attachment
@@ -147,23 +166,18 @@ func (s *customStep) getActions() []Action {
 					var newActions []Action
 					if skip == -1 || resposeError != "" || len(resposeErrors) != 0 {
 						// Keep full list
-						newActions = s.getActions()
+						newActions = s.getActions(pluginURL)
 					} else {
 						// Only list the selected one
-						newAction := s.getActions()[j]
+						newAction := s.getActions(pluginURL)[j]
 						newAction.Disabled = true
 
 						newActions = []Action{newAction}
 					}
 
 					attachment := &Attachment{
-						SlackAttachment: &model.SlackAttachment{
-							Pretext:  s.Pretext,
-							Title:    s.Title,
-							Text:     s.Message,
-							Fallback: fmt.Sprintf("%s: %s", s.Title, s.Message),
-						},
-						Actions: newActions,
+						SlackAttachment: s.getAttachment(pluginURL),
+						Actions:         newActions,
 					}
 
 					return skip, attachment, resposeError, resposeErrors
@@ -178,7 +192,7 @@ func (s *customStep) getActions() []Action {
 }
 
 func (s *customStep) GetPropertyName() string {
-	return s.ID
+	return s.property
 }
 
 func (s *customStep) ShouldSkip(rawValue interface{}) int {
@@ -188,12 +202,12 @@ func (s *customStep) ShouldSkip(rawValue interface{}) int {
 		return 0
 	}
 
-	if i > len(s.Buttons)-1 {
+	if i > len(s.buttons)-1 {
 		// TODO: properly handle this case
 		return 0
 	}
 
-	b := s.Buttons[i]
+	b := s.buttons[i]
 
 	if b.Dialog != nil {
 		return -1 // Go back to the current step
@@ -218,7 +232,11 @@ func (*customStep) parseValue(rawValue interface{}) (int, error) {
 }
 
 func (s *customStep) IsEmpty() bool {
-	return len(s.Buttons) == 0
+	if s.IsNotEmpty {
+		return false
+	}
+
+	return len(s.buttons) == 0
 }
 
 func (*customStep) GetFreetextFetcher() freetextfetcher.FreetextFetcher {

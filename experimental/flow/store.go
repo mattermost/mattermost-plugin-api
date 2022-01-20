@@ -39,6 +39,7 @@ func (fs *flowStore) SetPostID(userID, propertyName, postID string) error {
 	if !ok {
 		return errors.New("value not set without errors")
 	}
+
 	return nil
 }
 
@@ -48,6 +49,7 @@ func (fs *flowStore) GetPostID(userID, propertyName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return postID, nil
 }
 

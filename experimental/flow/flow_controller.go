@@ -227,7 +227,7 @@ func (fc *flowController) processStep(userID string, i int) error {
 		fc.Errorf("Store nil")
 	}
 
-	attachements := fc.toSlackAttachments(step.Attachment(), i)
+	attachements := fc.toSlackAttachments(step.Attachment(fc.pluginURL), i)
 	postID, err := fc.DMWithAttachments(userID, attachements)
 	if err != nil {
 		return err
