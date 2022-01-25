@@ -1,8 +1,6 @@
 package steps
 
 import (
-	"github.com/mattermost/mattermost-plugin-api/experimental/freetextfetcher"
-
 	"github.com/mattermost/mattermost-server/v6/model"
 )
 
@@ -40,7 +38,5 @@ func (a *Attachment) ToSlackAttachment() *model.SlackAttachment {
 type Step interface {
 	Attachment(pluginURL string) Attachment
 	GetPropertyName() string
-	ShouldSkip(value interface{}) int
 	IsEmpty() bool
-	GetFreetextFetcher() freetextfetcher.FreetextFetcher
 }

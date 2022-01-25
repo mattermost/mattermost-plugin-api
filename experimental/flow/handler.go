@@ -180,8 +180,8 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 		model.ParseSlackAttachment(post, []*model.SlackAttachment{fh.fc.toSlackAttachments(*attachment, stepNumber)})
 		err = fh.fc.UpdatePost(post)
 		if err != nil {
-			//common.DialogError(w, errors.Wrap(err, "Failed to update post"))
-			//return
+			common.DialogError(w, errors.Wrap(err, "Failed to update post"))
+			return
 		}
 	}
 

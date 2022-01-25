@@ -1,15 +1,10 @@
 package steps
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"github.com/mattermost/mattermost-server/v6/model"
-
-	"github.com/mattermost/mattermost-plugin-api/experimental/freetextfetcher"
 )
 
 type ButtonStyle string
@@ -32,12 +27,12 @@ type Button struct {
 	Dialog *Dialog
 }
 
-type customStepBuilder struct {
+type CustomStepBuilder struct {
 	step customStep
 }
 
-func NewCustomStepBuilder(title, message string) *customStepBuilder {
-	return &customStepBuilder{
+func NewCustomStepBuilder(title, message string) *CustomStepBuilder {
+	return &CustomStepBuilder{
 		step: customStep{
 			property: model.NewId(),
 			title:    title,
@@ -46,31 +41,31 @@ func NewCustomStepBuilder(title, message string) *customStepBuilder {
 	}
 }
 
-func (b *customStepBuilder) WithButton(button Button) *customStepBuilder {
+func (b *CustomStepBuilder) WithButton(button Button) *CustomStepBuilder {
 	b.step.buttons = append(b.step.buttons, button)
 
 	return b
 }
 
-func (b *customStepBuilder) WithPretext(text string) *customStepBuilder {
+func (b *CustomStepBuilder) WithPretext(text string) *CustomStepBuilder {
 	b.step.pretext = text
 
 	return b
 }
 
-func (b *customStepBuilder) WithImage(path string) *customStepBuilder {
+func (b *CustomStepBuilder) WithImage(path string) *CustomStepBuilder {
 	b.step.imagePath = strings.TrimPrefix(path, "/")
 
 	return b
 }
 
-func (b *customStepBuilder) IsNotEmpty() *customStepBuilder {
+func (b *CustomStepBuilder) IsNotEmpty() *CustomStepBuilder {
 	b.step.IsNotEmpty = true
 
 	return b
 }
 
-func (b *customStepBuilder) Build() Step {
+func (b *CustomStepBuilder) Build() Step {
 	return &b.step
 }
 
@@ -195,50 +190,10 @@ func (s *customStep) GetPropertyName() string {
 	return s.property
 }
 
-func (s *customStep) ShouldSkip(rawValue interface{}) int {
-	i, err := s.parseValue(rawValue)
-	if err != nil {
-		// TODO: properly handle this case
-		return 0
-	}
-
-	if i > len(s.buttons)-1 {
-		// TODO: properly handle this case
-		return 0
-	}
-
-	b := s.buttons[i]
-
-	if b.Dialog != nil {
-		return -1 // Go back to the current step
-	}
-
-	return 100
-}
-
-func (*customStep) parseValue(rawValue interface{}) (int, error) {
-	v, ok := rawValue.(string)
-	if !ok {
-		return 0, errors.New("value is not a string")
-	}
-
-	var i int
-	err := json.Unmarshal([]byte(v), &i)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to unmarshal json value")
-	}
-
-	return i, nil
-}
-
 func (s *customStep) IsEmpty() bool {
 	if s.IsNotEmpty {
 		return false
 	}
 
 	return len(s.buttons) == 0
-}
-
-func (*customStep) GetFreetextFetcher() freetextfetcher.FreetextFetcher {
-	return nil
 }

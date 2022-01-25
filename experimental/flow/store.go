@@ -16,6 +16,8 @@ type Store interface {
 	RemovePostID(userID, propertyName string) error
 	GetCurrentStep(userID string) (int, error)
 	SetCurrentStep(userID string, step int) error
+	//GetContext(userID string) (map[string]interface{}, error)
+	// GetContext(userID string, key string) (interface{}, error)
 	DeleteCurrentStep(userID string) error
 }
 

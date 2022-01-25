@@ -1,10 +1,7 @@
 package steps
 
 import (
-	"encoding/json"
 	"fmt"
-
-	"github.com/mattermost/mattermost-plugin-api/experimental/freetextfetcher"
 
 	"github.com/mattermost/mattermost-server/v6/model"
 )
@@ -95,29 +92,6 @@ func (s *simpleStep) GetPropertyName() string {
 	return s.PropertyName
 }
 
-func (s *simpleStep) ShouldSkip(rawValue interface{}) int {
-	value := s.parseValue(rawValue)
-
-	if value {
-		return s.TrueSkip
-	}
-
-	return s.FalseSkip
-}
-
 func (s *simpleStep) IsEmpty() bool {
 	return false
-}
-
-func (*simpleStep) parseValue(rawValue interface{}) (value bool) {
-	err := json.Unmarshal([]byte(rawValue.(string)), &value)
-	if err != nil {
-		return false
-	}
-
-	return value
-}
-
-func (*simpleStep) GetFreetextFetcher() freetextfetcher.FreetextFetcher {
-	return nil
 }

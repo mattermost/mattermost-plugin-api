@@ -23,7 +23,6 @@ type Controller interface {
 	GetCurrentStep(userID string) (steps.Step, int, error)
 	GetFlow() Flow
 	Cancel(userID string) error
-	SetProperty(userID, propertyName string, value interface{}) error
 }
 
 type flowController struct {
@@ -58,25 +57,11 @@ func NewFlowController(
 
 	initHandler(r, fc)
 
-	for _, step := range flow.Steps() {
-		ftf := step.GetFreetextFetcher()
-		if ftf != nil {
-			ftf.UpdateHooks(nil,
-				fc.ftOnFetch,
-				fc.ftOnCancel,
-			)
-		}
-	}
-
 	return fc
 }
 
 func (fc *flowController) GetFlow() Flow {
 	return fc.flow
-}
-
-func (fc *flowController) SetProperty(userID, propertyName string, value interface{}) error {
-	return fc.propertyStore.SetProperty(userID, propertyName, value)
 }
 
 func (fc *flowController) Start(userID string) error {
@@ -242,19 +227,5 @@ func (fc *flowController) processStep(userID string, i int) error {
 		return err
 	}
 
-	ftf := step.GetFreetextFetcher()
-	if ftf == nil {
-		return nil
-	}
-
-	payload, err := json.Marshal(freetextInfo{
-		Step:     i,
-		UserID:   userID,
-		Property: step.GetPropertyName(),
-	})
-	if err != nil {
-		return err
-	}
-	ftf.StartFetching(userID, string(payload))
 	return nil
 }
