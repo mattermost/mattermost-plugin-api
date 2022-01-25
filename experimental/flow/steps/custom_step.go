@@ -31,12 +31,15 @@ type CustomStepBuilder struct {
 	step customStep
 }
 
-func NewCustomStepBuilder(title, message string) *CustomStepBuilder {
+// NewCustomStepBuilder create a new builder for a custom step.
+//
+// name must be a unique identifier for a step within the plugin.
+func NewCustomStepBuilder(name, title, message string) *CustomStepBuilder {
 	return &CustomStepBuilder{
 		step: customStep{
-			property: model.NewId(),
-			title:    title,
-			message:  message,
+			name:    name,
+			title:   title,
+			message: message,
 		},
 	}
 }
@@ -70,9 +73,9 @@ func (b *CustomStepBuilder) Build() Step {
 }
 
 type customStep struct {
-	property string
-	title    string
-	message  string
+	name    string
+	title   string
+	message string
 
 	pretext   string
 	imagePath string
@@ -186,8 +189,8 @@ func (s *customStep) getActions(pluginURL string) []Action {
 	return actions
 }
 
-func (s *customStep) GetPropertyName() string {
-	return s.property
+func (s *customStep) Name() string {
+	return s.name
 }
 
 func (s *customStep) IsEmpty() bool {

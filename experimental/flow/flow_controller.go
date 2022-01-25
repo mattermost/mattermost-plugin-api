@@ -88,7 +88,7 @@ func (fc *flowController) NextStep(userID string, from, skip int) error {
 
 	step := fc.flow.Step(stepIndex)
 
-	err = fc.store.RemovePostID(userID, step.GetPropertyName())
+	err = fc.removePostID(userID, step)
 	if err != nil {
 		fc.Logger.WithError(err).Debugf("error removing post id")
 	}
@@ -170,7 +170,7 @@ func (fc *flowController) Cancel(userID string) error {
 		return nil
 	}
 
-	postID, err := fc.store.GetPostID(userID, step.GetPropertyName())
+	postID, err := fc.getPostID(userID, step)
 	if err != nil {
 		return err
 	}
@@ -184,15 +184,27 @@ func (fc *flowController) Cancel(userID string) error {
 }
 
 func (fc *flowController) setFlowStep(userID string, step int) error {
-	return fc.store.SetCurrentStep(userID, step)
+	return fc.store.SetCurrentStep(userID, fc.flow.Name(), step)
 }
 
 func (fc *flowController) getFlowStep(userID string) (int, error) {
-	return fc.store.GetCurrentStep(userID)
+	return fc.store.GetCurrentStep(userID, fc.flow.Name())
 }
 
 func (fc *flowController) removeFlowStep(userID string) error {
-	return fc.store.DeleteCurrentStep(userID)
+	return fc.store.DeleteCurrentStep(userID, fc.flow.Name())
+}
+
+func (fc *flowController) getPostID(userID string, step steps.Step) (string, error) {
+	return fc.store.GetPostID(userID, fc.flow.Name(), step.Name())
+}
+
+func (fc *flowController) setPostID(userID string, step steps.Step, postID string) error {
+	return fc.store.SetPostID(userID, fc.flow.Name(), step.Name(), postID)
+}
+
+func (fc *flowController) removePostID(userID string, step steps.Step) error {
+	return fc.store.RemovePostID(userID, fc.flow.Name(), step.Name())
 }
 
 func (fc *flowController) processStep(userID string, i int) error {
@@ -219,7 +231,7 @@ func (fc *flowController) processStep(userID string, i int) error {
 		return fc.NextStep(userID, i, 0)
 	}
 
-	err = fc.store.SetPostID(userID, step.GetPropertyName(), postID)
+	err = fc.setPostID(userID, step, postID)
 	if err != nil {
 		return err
 	}

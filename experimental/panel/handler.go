@@ -55,7 +55,7 @@ func (sh *handler) handleAction(w http.ResponseWriter, r *http.Request) {
 	idString := id.(string)
 	err := sh.panel.Set(mattermostUserID, idString, value)
 	if err != nil {
-		common.SlackAttachmentError(w, "Error: cannot set the property, "+err.Error())
+		common.SlackAttachmentError(w, "Error: cannot save setting, "+err.Error())
 		return
 	}
 

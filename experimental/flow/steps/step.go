@@ -6,7 +6,7 @@ import (
 
 type Step interface {
 	Attachment(pluginURL string) Attachment
-	GetPropertyName() string
+	Name() string
 	IsEmpty() bool
 }
 

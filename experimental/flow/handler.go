@@ -171,7 +171,7 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 
 	if attachment != nil {
 		var postID string
-		postID, err = fh.fc.store.GetPostID(userID, step.GetPropertyName())
+		postID, err = fh.fc.getPostID(userID, step)
 		if err != nil {
 			common.DialogError(w, errors.Wrap(err, "Failed to get post"))
 			return

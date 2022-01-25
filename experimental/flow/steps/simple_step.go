@@ -7,9 +7,9 @@ import (
 )
 
 type simpleStep struct {
+	name                 string
 	title                string
 	message              string
-	propertyName         string
 	trueButtonMessage    string
 	falseButtonMessage   string
 	trueResponseMessage  string
@@ -19,9 +19,9 @@ type simpleStep struct {
 }
 
 func NewSimpleStep(
+	name,
 	title,
 	message,
-	propertyName,
 	trueButtonMessage,
 	falseButtonMessage,
 	trueResponseMessage,
@@ -30,9 +30,9 @@ func NewSimpleStep(
 	falseSkip int,
 ) Step {
 	return &simpleStep{
+		name:                 name,
 		title:                title,
 		message:              message,
-		propertyName:         propertyName,
 		trueButtonMessage:    trueButtonMessage,
 		falseButtonMessage:   falseButtonMessage,
 		trueResponseMessage:  trueResponseMessage,
@@ -88,8 +88,8 @@ func (s *simpleStep) Attachment(pluginURL string) Attachment {
 	return a
 }
 
-func (s *simpleStep) GetPropertyName() string {
-	return s.propertyName
+func (s *simpleStep) Name() string {
+	return s.name
 }
 
 func (s *simpleStep) IsEmpty() bool {
