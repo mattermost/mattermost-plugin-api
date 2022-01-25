@@ -6,10 +6,6 @@ import (
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 )
 
-type PropertyStore interface {
-	SetProperty(userID, propertyName string, value interface{}) error
-}
-
 type Store interface {
 	SetPostID(userID, propertyName, postID string) error
 	GetPostID(userID, propertyName string) (string, error)

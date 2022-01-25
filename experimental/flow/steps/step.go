@@ -4,23 +4,21 @@ import (
 	"github.com/mattermost/mattermost-server/v6/model"
 )
 
-const (
-	ContextStepKey     = "step"
-	ContextButtonIDKey = "button_id"
+type Step interface {
+	Attachment(pluginURL string) Attachment
+	GetPropertyName() string
+	IsEmpty() bool
+}
 
-	ContextPropertyKey    = "property"
-	ContextButtonValueKey = "button_value"
-	ContextOptionValueKey = "selected_option"
-)
+type Attachment struct {
+	SlackAttachment *model.SlackAttachment
+	Actions         []Action
+}
 
 type Action struct {
 	model.PostAction
 	OnClick func(userID string) (int, Attachment)
 	Dialog  *Dialog
-}
-type Attachment struct {
-	SlackAttachment *model.SlackAttachment
-	Actions         []Action
 }
 
 func (a *Attachment) ToSlackAttachment() *model.SlackAttachment {
@@ -33,10 +31,4 @@ func (a *Attachment) ToSlackAttachment() *model.SlackAttachment {
 	}
 
 	return &ret
-}
-
-type Step interface {
-	Attachment(pluginURL string) Attachment
-	GetPropertyName() string
-	IsEmpty() bool
 }

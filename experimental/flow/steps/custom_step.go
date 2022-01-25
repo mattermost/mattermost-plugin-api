@@ -60,7 +60,7 @@ func (b *CustomStepBuilder) WithImage(path string) *CustomStepBuilder {
 }
 
 func (b *CustomStepBuilder) IsNotEmpty() *CustomStepBuilder {
-	b.step.IsNotEmpty = true
+	b.step.isNotEmpty = true
 
 	return b
 }
@@ -78,7 +78,7 @@ type customStep struct {
 	imagePath string
 	buttons   []Button
 
-	IsNotEmpty bool
+	isNotEmpty bool
 }
 
 func (s *customStep) Attachment(pluginURL string) Attachment {
@@ -191,7 +191,7 @@ func (s *customStep) GetPropertyName() string {
 }
 
 func (s *customStep) IsEmpty() bool {
-	if s.IsNotEmpty {
+	if s.isNotEmpty {
 		return false
 	}
 

@@ -16,7 +16,11 @@ import (
 	"github.com/mattermost/mattermost-server/v6/model"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/common"
-	"github.com/mattermost/mattermost-plugin-api/experimental/flow/steps"
+)
+
+const (
+	contextStepKey     = "step"
+	contextButtonIDKey = "button_id"
 )
 
 type fh struct {
@@ -46,7 +50,7 @@ func (fh *fh) handleFlowButton(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rawStep, ok := request.Context[steps.ContextStepKey].(string)
+	rawStep, ok := request.Context[contextStepKey].(string)
 	if !ok {
 		common.SlackAttachmentError(w, "Error: missing step number")
 		return
@@ -65,7 +69,7 @@ func (fh *fh) handleFlowButton(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rawButtonNumber, ok := request.Context[steps.ContextButtonIDKey].(string)
+	rawButtonNumber, ok := request.Context[contextButtonIDKey].(string)
 	if !ok {
 		common.SlackAttachmentError(w, "Error: missing button id")
 		return

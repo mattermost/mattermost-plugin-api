@@ -29,10 +29,9 @@ type flowController struct {
 	logger.Logger
 	poster.Poster
 	DialogCreater
-	flow          Flow
-	store         Store
-	propertyStore PropertyStore
-	pluginURL     string
+	flow      Flow
+	store     Store
+	pluginURL string
 }
 
 func NewFlowController(
@@ -43,7 +42,6 @@ func NewFlowController(
 	pluginURL string,
 	flow Flow,
 	flowStore Store,
-	propertyStore PropertyStore,
 ) Controller {
 	fc := &flowController{
 		Poster:        p,
@@ -51,7 +49,6 @@ func NewFlowController(
 		DialogCreater: d,
 		flow:          flow,
 		store:         flowStore,
-		propertyStore: propertyStore,
 		pluginURL:     pluginURL,
 	}
 
@@ -149,8 +146,8 @@ func (fc *flowController) toSlackAttachments(attachment steps.Attachment, stepNu
 		updatedAction.Integration = &model.PostActionIntegration{
 			URL: fc.getButtonHandlerURL(),
 			Context: map[string]interface{}{
-				steps.ContextStepKey:     string(stepValue),
-				steps.ContextButtonIDKey: string(buttonNumber),
+				contextStepKey:     string(stepValue),
+				contextButtonIDKey: string(buttonNumber),
 			},
 		}
 

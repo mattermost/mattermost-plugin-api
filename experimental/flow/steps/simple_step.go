@@ -7,15 +7,15 @@ import (
 )
 
 type simpleStep struct {
-	Title                string
-	Message              string
-	PropertyName         string
-	TrueButtonMessage    string
-	FalseButtonMessage   string
-	TrueResponseMessage  string
-	FalseResponseMessage string
-	TrueSkip             int
-	FalseSkip            int
+	title                string
+	message              string
+	propertyName         string
+	trueButtonMessage    string
+	falseButtonMessage   string
+	trueResponseMessage  string
+	falseResponseMessage string
+	trueSkip             int
+	falseSkip            int
 }
 
 func NewSimpleStep(
@@ -30,15 +30,15 @@ func NewSimpleStep(
 	falseSkip int,
 ) Step {
 	return &simpleStep{
-		Title:                title,
-		Message:              message,
-		PropertyName:         propertyName,
-		TrueButtonMessage:    trueButtonMessage,
-		FalseButtonMessage:   falseButtonMessage,
-		TrueResponseMessage:  trueResponseMessage,
-		FalseResponseMessage: falseResponseMessage,
-		TrueSkip:             trueSkip,
-		FalseSkip:            falseSkip,
+		title:                title,
+		message:              message,
+		propertyName:         propertyName,
+		trueButtonMessage:    trueButtonMessage,
+		falseButtonMessage:   falseButtonMessage,
+		trueResponseMessage:  trueResponseMessage,
+		falseResponseMessage: falseResponseMessage,
+		trueSkip:             trueSkip,
+		falseSkip:            falseSkip,
 	}
 }
 
@@ -46,15 +46,15 @@ func (s *simpleStep) Attachment(pluginURL string) Attachment {
 	actionTrue := Action{
 		PostAction: model.PostAction{
 			Type:     model.PostActionTypeButton,
-			Name:     s.TrueButtonMessage,
+			Name:     s.trueButtonMessage,
 			Disabled: false,
 		},
 		OnClick: func(userID string) (int, Attachment) {
-			return s.TrueSkip, Attachment{
+			return s.trueSkip, Attachment{
 				SlackAttachment: &model.SlackAttachment{
-					Title:    s.Title,
-					Text:     s.TrueResponseMessage,
-					Fallback: fmt.Sprintf("%s: %s", s.Title, s.TrueResponseMessage),
+					Title:    s.title,
+					Text:     s.trueResponseMessage,
+					Fallback: fmt.Sprintf("%s: %s", s.title, s.trueResponseMessage),
 				}}
 		},
 	}
@@ -62,15 +62,15 @@ func (s *simpleStep) Attachment(pluginURL string) Attachment {
 	actionFalse := Action{
 		PostAction: model.PostAction{
 			Type:     model.PostActionTypeButton,
-			Name:     s.FalseButtonMessage,
+			Name:     s.falseButtonMessage,
 			Disabled: false,
 		},
 		OnClick: func(userID string) (int, Attachment) {
-			return s.FalseSkip, Attachment{
+			return s.falseSkip, Attachment{
 				SlackAttachment: &model.SlackAttachment{
-					Title:    s.Title,
-					Text:     s.FalseResponseMessage,
-					Fallback: fmt.Sprintf("%s: %s", s.Title, s.FalseResponseMessage),
+					Title:    s.title,
+					Text:     s.falseResponseMessage,
+					Fallback: fmt.Sprintf("%s: %s", s.title, s.falseResponseMessage),
 				},
 			}
 		},
@@ -78,9 +78,9 @@ func (s *simpleStep) Attachment(pluginURL string) Attachment {
 
 	a := Attachment{
 		SlackAttachment: &model.SlackAttachment{
-			Title:    s.Title,
-			Text:     s.Message,
-			Fallback: fmt.Sprintf("%s: %s", s.Title, s.Message),
+			Title:    s.title,
+			Text:     s.message,
+			Fallback: fmt.Sprintf("%s: %s", s.title, s.message),
 		},
 		Actions: []Action{actionTrue, actionFalse},
 	}
@@ -89,7 +89,7 @@ func (s *simpleStep) Attachment(pluginURL string) Attachment {
 }
 
 func (s *simpleStep) GetPropertyName() string {
-	return s.PropertyName
+	return s.propertyName
 }
 
 func (s *simpleStep) IsEmpty() bool {
