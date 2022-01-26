@@ -40,51 +40,51 @@ func initHandler(r *mux.Router, fc *flowController) {
 func (fh *fh) handleFlowButton(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
-		common.SlackAttachmentError(w, "Error: Not authorized")
+		common.SlackAttachmentError(w, errors.New("Not authorized"))
 		return
 	}
 
 	var request model.PostActionIntegrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		common.SlackAttachmentError(w, "Error: invalid request")
+		common.SlackAttachmentError(w, errors.New("invalid request"))
 		return
 	}
 
 	rawStep, ok := request.Context[contextStepKey].(string)
 	if !ok {
-		common.SlackAttachmentError(w, "Error: missing step number")
+		common.SlackAttachmentError(w, errors.New("missing step number"))
 		return
 	}
 
 	var stepNumber int
 	err := json.Unmarshal([]byte(rawStep), &stepNumber)
 	if err != nil {
-		common.SlackAttachmentError(w, fmt.Sprintf("Error: cannot parse step number %v - %v", err.Error(), rawStep))
+		common.SlackAttachmentError(w, errors.Wrap(err, "malformed step number"))
 		return
 	}
 
 	step := fh.fc.GetFlow().Step(stepNumber)
 	if step == nil {
-		common.SlackAttachmentError(w, fmt.Sprintf("Error: There is no step %d.", step))
+		common.SlackAttachmentError(w, errors.New("there is no step"))
 		return
 	}
 
 	rawButtonNumber, ok := request.Context[contextButtonIDKey].(string)
 	if !ok {
-		common.SlackAttachmentError(w, "Error: missing button id")
+		common.SlackAttachmentError(w, errors.New("missing button id"))
 		return
 	}
 
 	var buttonNumber int
 	err = json.Unmarshal([]byte(rawButtonNumber), &buttonNumber)
 	if err != nil {
-		common.SlackAttachmentError(w, "Error: cannot parse button number")
+		common.SlackAttachmentError(w, errors.Wrap(err, "malformed button number"))
 		return
 	}
 
 	actions := step.Attachment(fh.fc.pluginURL).Actions
 	if buttonNumber > len(actions)-1 {
-		common.SlackAttachmentError(w, "Error: button number to high")
+		common.SlackAttachmentError(w, errors.New("button number to high"))
 		return
 	}
 
@@ -122,43 +122,43 @@ func (fh *fh) handleFlowButton(w http.ResponseWriter, r *http.Request) {
 func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
-		common.DialogError(w, errors.New("Error: Not authorized"))
+		common.DialogError(w, errors.New("not authorized"))
 		return
 	}
 
 	var request model.SubmitDialogRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		common.DialogError(w, errors.New("Error: invalid request"))
+		common.DialogError(w, errors.New("invalid request"))
 		return
 	}
 
 	states := strings.Split(request.State, "_")
 	if len(states) != 2 {
-		common.DialogError(w, errors.New("Error: invalid request"))
+		common.DialogError(w, errors.New("invalid request"))
 		return
 	}
 
 	stepNumber, err := strconv.Atoi(states[0])
 	if err != nil {
-		common.DialogError(w, errors.Wrap(err, "Error: malformed step number"))
+		common.DialogError(w, errors.Wrap(err, "malformed step number"))
 		return
 	}
 
 	step := fh.fc.GetFlow().Step(stepNumber)
 	if step == nil {
-		common.DialogError(w, errors.New("Error: There is no step"))
+		common.DialogError(w, errors.New("there is no step"))
 		return
 	}
 
 	buttonNumber, err := strconv.Atoi(states[1])
 	if err != nil {
-		common.DialogError(w, errors.Wrap(err, "Error: malformed button number"))
+		common.DialogError(w, errors.Wrap(err, "malformed button number"))
 		return
 	}
 
 	actions := step.Attachment(fh.fc.pluginURL).Actions
 	if buttonNumber > len(actions)-1 {
-		common.SlackAttachmentError(w, "Error: button number to high")
+		common.DialogError(w, errors.New("button number to high"))
 		return
 	}
 
