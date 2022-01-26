@@ -6,21 +6,24 @@ import (
 	"github.com/mattermost/mattermost-server/v6/model"
 )
 
-type emptyStep struct {
-	name    string
-	title   string
-	message string
+var _ Step = (*EmptyStep)(nil)
+
+type EmptyStep struct {
+	name     string
+	title    string
+	message  string
+	OnRender func(userID string)
 }
 
-func NewEmptyStep(name, title, message string) Step {
-	return &emptyStep{
+func NewEmptyStep(name, title, message string) *EmptyStep {
+	return &EmptyStep{
 		name:    name,
 		title:   title,
 		message: message,
 	}
 }
 
-func (s *emptyStep) Attachment(pluginURL string) Attachment {
+func (s *EmptyStep) Attachment(pluginURL string) Attachment {
 	sa := Attachment{
 		SlackAttachment: &model.SlackAttachment{
 			Title:    s.title,
@@ -32,10 +35,10 @@ func (s *emptyStep) Attachment(pluginURL string) Attachment {
 	return sa
 }
 
-func (s *emptyStep) Name() string {
+func (s *EmptyStep) Name() string {
 	return s.name
 }
 
-func (s *emptyStep) IsEmpty() bool {
+func (s *EmptyStep) IsEmpty() bool {
 	return true
 }
