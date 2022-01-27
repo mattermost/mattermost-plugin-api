@@ -16,6 +16,7 @@ import (
 	"github.com/mattermost/mattermost-server/v6/model"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/common"
+	"github.com/mattermost/mattermost-plugin-api/experimental/flow/steps"
 )
 
 const (
@@ -162,7 +163,20 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	skip, attachment, resposeError, resposeErrors := actions[buttonNumber].Dialog.OnDialogSubmit(request.UserId, request.Submission)
+	action := actions[buttonNumber]
+
+	var (
+		skip          int
+		attachment    *steps.Attachment
+		resposeError  string
+		resposeErrors map[string]string
+	)
+
+	if request.Cancelled {
+		skip, attachment = action.Dialog.OnCancel(userID)
+	} else {
+		skip, attachment, resposeError, resposeErrors = action.Dialog.OnDialogSubmit(userID, request.Submission)
+	}
 
 	response := model.SubmitDialogResponse{
 		Error:  resposeError,

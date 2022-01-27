@@ -7,21 +7,21 @@ import (
 	"github.com/mattermost/mattermost-server/v6/model"
 )
 
-type ButtonStyle string
+type Color string
 
 const (
-	Default ButtonStyle = "default"
-	Primary ButtonStyle = "primary"
-	Success ButtonStyle = "success"
-	Good    ButtonStyle = "good"
-	Warning ButtonStyle = "warning"
-	Danger  ButtonStyle = "danger"
+	ColorDefault Color = "default"
+	ColorPrimary Color = "primary"
+	ColorSuccess Color = "success"
+	ColorGood    Color = "good"
+	ColorWarning Color = "warning"
+	ColorDanger  Color = "danger"
 )
 
 type Button struct {
 	Name     string
 	Disabled bool
-	Style    ButtonStyle
+	Style    Color
 	OnClick  func(userID string) int
 
 	Dialog *Dialog
@@ -44,14 +44,20 @@ func NewCustomStepBuilder(name, title, message string) *CustomStepBuilder {
 	}
 }
 
-func (b *CustomStepBuilder) WithButton(button Button) *CustomStepBuilder {
-	b.step.buttons = append(b.step.buttons, button)
+func (b *CustomStepBuilder) WithColor(color Color) *CustomStepBuilder {
+	b.step.color = color
 
 	return b
 }
 
 func (b *CustomStepBuilder) WithPretext(text string) *CustomStepBuilder {
 	b.step.pretext = text
+
+	return b
+}
+
+func (b *CustomStepBuilder) WithButton(button Button) *CustomStepBuilder {
+	b.step.buttons = append(b.step.buttons, button)
 
 	return b
 }
@@ -77,6 +83,7 @@ type customStep struct {
 	title   string
 	message string
 
+	color     Color
 	pretext   string
 	imagePath string
 	buttons   []Button
@@ -95,6 +102,7 @@ func (s *customStep) Attachment(pluginURL string) Attachment {
 
 func (s *customStep) getAttachment(pluginURL string) *model.SlackAttachment {
 	attachment := &model.SlackAttachment{
+		Color:    string(s.color),
 		Pretext:  s.pretext,
 		Title:    s.title,
 		Text:     s.message,
@@ -180,6 +188,13 @@ func (s *customStep) getActions(pluginURL string) []Action {
 
 					return skip, attachment, resposeError, resposeErrors
 				},
+			}
+
+			if dialog.OnCancel != nil {
+				action.Dialog.Dialog.NotifyOnCancel = true
+				action.Dialog.OnCancel = dialog.OnCancel
+			} else {
+				action.Dialog.Dialog.NotifyOnCancel = false
 			}
 		}
 
