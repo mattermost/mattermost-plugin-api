@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -42,7 +41,7 @@ func (f *UserFlow) handleButton(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := getState(&f.api.KV, userID, f.Name)
+	state, err := f.getState(userID)
 	if err != nil {
 		common.SlackAttachmentError(w, err)
 		return
@@ -74,7 +73,7 @@ func (f *UserFlow) handleButton(w http.ResponseWriter, r *http.Request) {
 	if action.OnClickDialog != nil {
 		dialogRequest := model.OpenDialogRequest{
 			TriggerId: request.TriggerId,
-			URL:       f.pluginURL + MakePath(f.Name) + "/dialog",
+			URL:       f.pluginURL + makePath(f.Name) + "/dialog",
 			Dialog:    action.OnClickDialog.Dialog,
 		}
 		dialogRequest.Dialog.State = fmt.Sprintf("%v,%v", fromName, button)
@@ -120,7 +119,7 @@ func (f *UserFlow) handleDialog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := getState(&f.api.KV, userID, f.Name)
+	state, err := f.getState(userID)
 	if err != nil {
 		common.DialogError(w, err)
 		return
@@ -187,8 +186,4 @@ func (f *UserFlow) handleDialog(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		f.api.Log.Warn("failed to advance to next step", "flow", f.Name, "step", toName)
 	}
-}
-
-func MakePath(name Name) string {
-	return "/" + url.PathEscape(strings.Trim(string(name), "/"))
 }

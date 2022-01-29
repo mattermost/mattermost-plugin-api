@@ -2,8 +2,6 @@ package flow
 
 import (
 	"errors"
-
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
 )
 
 // JSON-serializable flow state.
@@ -11,17 +9,15 @@ type flowState struct {
 	// The name of the step.
 	StepName Name
 
-	// Each done step produces a post, some add the index of selected button.
-	Done   bool
+	// ID of the post produced by the step.
 	PostID string
-	Button int
 
 	// Application-level state.
 	AppState State
 }
 
-func storeState(kv *pluginapi.KVService, userID string, flowName Name, state flowState) error {
-	ok, err := kv.Set(kvKey(userID, flowName), state)
+func (f *UserFlow) storeState(userID string, state flowState) error {
+	ok, err := f.api.KV.Set(kvKey(userID, f.Name), state)
 	if err != nil {
 		return err
 	}
@@ -31,14 +27,14 @@ func storeState(kv *pluginapi.KVService, userID string, flowName Name, state flo
 	return nil
 }
 
-func getState(kv *pluginapi.KVService, userID string, flowName Name) (flowState, error) {
+func (f *UserFlow) getState(userID string) (flowState, error) {
 	state := flowState{}
-	err := kv.Get(kvKey(userID, flowName), &state)
+	err := f.api.KV.Get(kvKey(userID, f.Name), &state)
 	return state, err
 }
 
-func removeState(kv *pluginapi.KVService, userID string, flowName Name) error {
-	return kv.Delete(kvKey(userID, flowName))
+func (f *UserFlow) removeState(userID string) error {
+	return f.api.KV.Delete(kvKey(userID, f.Name))
 }
 
 func kvKey(userID string, flowName Name) string {

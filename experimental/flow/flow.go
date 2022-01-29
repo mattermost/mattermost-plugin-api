@@ -2,6 +2,8 @@ package flow
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -18,7 +20,7 @@ type State map[string]string
 type Flow interface {
 	Step(Name) Step
 	Go(userID string, to Name) error
-	Start(userID string) error
+	Start(userID string, appState State) error
 }
 
 const (
@@ -69,8 +71,8 @@ func (f UserFlow) WithSteps(orderedSteps ...Step) *UserFlow {
 
 func (f UserFlow) InitHTTP(r *mux.Router) *UserFlow {
 	flowRouter := r.PathPrefix("/").Subrouter()
-	flowRouter.HandleFunc(MakePath(f.Name)+"/button", f.handleButton).Methods(http.MethodPost)
-	flowRouter.HandleFunc(MakePath(f.Name)+"/dialog", f.handleDialog).Methods(http.MethodPost)
+	flowRouter.HandleFunc(makePath(f.Name)+"/button", f.handleButton).Methods(http.MethodPost)
+	flowRouter.HandleFunc(makePath(f.Name)+"/dialog", f.handleDialog).Methods(http.MethodPost)
 	return &f
 }
 
@@ -79,15 +81,23 @@ func (f UserFlow) Step(name Name) Step {
 	return step
 }
 
-func (f UserFlow) Start(userID string) error {
+func (f UserFlow) Start(userID string, appState State) error {
 	if len(f.index) == 0 {
 		return errors.New("no steps")
 	}
+
+	err := f.storeState(userID, flowState{
+		AppState: appState,
+	})
+	if err != nil {
+		return err
+	}
+
 	return f.Go(userID, f.index[0])
 }
 
 func (f UserFlow) Go(userID string, toName Name) error {
-	state, err := getState(&f.api.KV, userID, f.Name)
+	state, err := f.getState(userID)
 	if err != nil {
 		return err
 	}
@@ -112,7 +122,7 @@ func (f UserFlow) Go(userID string, toName Name) error {
 
 	state.StepName = toName
 	state.PostID = post.Id
-	err = storeState(&f.api.KV, userID, f.Name, state)
+	err = f.storeState(userID, state)
 	if err != nil {
 		return err
 	}
@@ -143,7 +153,7 @@ func (f UserFlow) renderAsPost(name Name, attachment Attachment) *model.Post {
 	updated := []Action{}
 	for i, a := range attachment.Actions {
 		a.Integration = &model.PostActionIntegration{
-			URL: f.pluginURL + MakePath(f.Name) + "/button",
+			URL: f.pluginURL + makePath(f.Name) + "/button",
 			Context: map[string]interface{}{
 				contextStepKey:   string(name),
 				contextButtonKey: i,
@@ -158,4 +168,8 @@ func (f UserFlow) renderAsPost(name Name, attachment Attachment) *model.Post {
 		attachment.asSlackAttachment(),
 	})
 	return &post
+}
+
+func makePath(name Name) string {
+	return "/" + url.PathEscape(strings.Trim(string(name), "/"))
 }
