@@ -1,4 +1,4 @@
-package steps
+package flow
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ type Button struct {
 	Name     string
 	Disabled bool
 	Style    Color
-	OnClick  func(userID string) int
+	OnClick  func(userID string) Name
 
 	Dialog *Dialog
 }
@@ -34,7 +34,7 @@ type CustomStepBuilder struct {
 // NewCustomStepBuilder create a new builder for a custom step.
 //
 // name must be a unique identifier for a step within the plugin.
-func NewCustomStepBuilder(name, title, message string) *CustomStepBuilder {
+func NewCustomStepBuilder(name Name, title, message string) *CustomStepBuilder {
 	return &CustomStepBuilder{
 		step: customStep{
 			name:    name,
@@ -79,7 +79,7 @@ func (b *CustomStepBuilder) Build() Step {
 }
 
 type customStep struct {
-	name    string
+	name    Name
 	title   string
 	message string
 
@@ -124,6 +124,7 @@ func (s *customStep) getActions(pluginURL string) []Action {
 	var actions []Action
 	for i, b := range s.buttons {
 		onClick := b.OnClick
+		// Avoid using the loop index in nested functions
 		j := i
 
 		dialog := b.Dialog
@@ -135,21 +136,20 @@ func (s *customStep) getActions(pluginURL string) []Action {
 				Disabled: b.Disabled,
 				Style:    string(b.Style),
 			},
-			OnClick: func(userID string) (int, Attachment) {
-				skip := 0
+			ClickFunc: func(userID string, state State) (Name, Attachment) {
+				to := Name("")
 				if onClick != nil {
-					skip = onClick(userID)
+					to = onClick(userID)
 				}
 
 				var newActions []Action
-				if skip == -1 {
+				if to == s.name {
 					// Keep full list
 					newActions = s.getActions(pluginURL)
 				} else {
 					// Only list the selected one
 					action := s.getActions(pluginURL)[j]
 					action.Disabled = true
-
 					newActions = []Action{action}
 				}
 
@@ -158,19 +158,19 @@ func (s *customStep) getActions(pluginURL string) []Action {
 					Actions:         newActions,
 				}
 
-				return skip, attachment
+				return to, attachment
 			},
 		}
 
 		if dialog != nil {
-			action.Dialog = &Dialog{
+			action.ClickDialog = &Dialog{
 				Dialog: dialog.Dialog,
 
-				OnDialogSubmit: func(userID string, submission map[string]interface{}) (int, *Attachment, string, map[string]string) {
-					skip, _, resposeError, resposeErrors := dialog.OnDialogSubmit(userID, submission)
+				OnDialogSubmit: func(userID string, submission map[string]interface{}, state State) (Name, *Attachment, string, map[string]string) {
+					to, _, resposeError, resposeErrors := dialog.OnDialogSubmit(userID, submission, state)
 
 					var newActions []Action
-					if skip == -1 || resposeError != "" || len(resposeErrors) != 0 {
+					if to == "" || resposeError != "" || len(resposeErrors) != 0 {
 						// Keep full list
 						newActions = s.getActions(pluginURL)
 					} else {
@@ -186,15 +186,15 @@ func (s *customStep) getActions(pluginURL string) []Action {
 						Actions:         newActions,
 					}
 
-					return skip, attachment, resposeError, resposeErrors
+					return to, attachment, resposeError, resposeErrors
 				},
 			}
 
 			if dialog.OnCancel != nil {
-				action.Dialog.Dialog.NotifyOnCancel = true
-				action.Dialog.OnCancel = dialog.OnCancel
+				action.ClickDialog.Dialog.NotifyOnCancel = true
+				action.ClickDialog.OnCancel = dialog.OnCancel
 			} else {
-				action.Dialog.Dialog.NotifyOnCancel = false
+				action.ClickDialog.Dialog.NotifyOnCancel = false
 			}
 		}
 
@@ -204,7 +204,7 @@ func (s *customStep) getActions(pluginURL string) []Action {
 	return actions
 }
 
-func (s *customStep) Name() string {
+func (s *customStep) Name() Name {
 	return s.name
 }
 

@@ -1,4 +1,4 @@
-package steps
+package flow
 
 import (
 	"fmt"
@@ -7,27 +7,27 @@ import (
 )
 
 type simpleStep struct {
-	name                 string
+	name                 Name
 	title                string
 	message              string
 	trueButtonMessage    string
 	falseButtonMessage   string
 	trueResponseMessage  string
 	falseResponseMessage string
-	trueSkip             int
-	falseSkip            int
+	trueGoTo             Name
+	falseGoTo            Name
 }
 
 func NewSimpleStep(
-	name,
+	name Name,
 	title,
 	message,
 	trueButtonMessage,
 	falseButtonMessage,
 	trueResponseMessage,
 	falseResponseMessage string,
-	trueSkip,
-	falseSkip int,
+	trueNext,
+	falseNext Name,
 ) Step {
 	return &simpleStep{
 		name:                 name,
@@ -37,8 +37,8 @@ func NewSimpleStep(
 		falseButtonMessage:   falseButtonMessage,
 		trueResponseMessage:  trueResponseMessage,
 		falseResponseMessage: falseResponseMessage,
-		trueSkip:             trueSkip,
-		falseSkip:            falseSkip,
+		trueGoTo:             trueNext,
+		falseGoTo:            falseNext,
 	}
 }
 
@@ -49,8 +49,8 @@ func (s *simpleStep) Attachment(pluginURL string) Attachment {
 			Name:     s.trueButtonMessage,
 			Disabled: false,
 		},
-		OnClick: func(userID string) (int, Attachment) {
-			return s.trueSkip, Attachment{
+		ClickFunc: func(userID string, _ State) (Name, Attachment) {
+			return s.trueGoTo, Attachment{
 				SlackAttachment: &model.SlackAttachment{
 					Title:    s.title,
 					Text:     s.trueResponseMessage,
@@ -65,8 +65,8 @@ func (s *simpleStep) Attachment(pluginURL string) Attachment {
 			Name:     s.falseButtonMessage,
 			Disabled: false,
 		},
-		OnClick: func(userID string) (int, Attachment) {
-			return s.falseSkip, Attachment{
+		ClickFunc: func(userID string, _ State) (Name, Attachment) {
+			return s.falseGoTo, Attachment{
 				SlackAttachment: &model.SlackAttachment{
 					Title:    s.title,
 					Text:     s.falseResponseMessage,
@@ -88,7 +88,7 @@ func (s *simpleStep) Attachment(pluginURL string) Attachment {
 	return a
 }
 
-func (s *simpleStep) Name() string {
+func (s *simpleStep) Name() Name {
 	return s.name
 }
 

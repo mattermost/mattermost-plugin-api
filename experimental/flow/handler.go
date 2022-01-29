@@ -7,38 +7,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
-	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-server/v6/model"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/common"
-	"github.com/mattermost/mattermost-plugin-api/experimental/flow/steps"
 )
 
-const (
-	contextStepKey     = "step"
-	contextButtonIDKey = "button_id"
-)
-
-type fh struct {
-	fc *flowController
-}
-
-func initHandler(r *mux.Router, fc *flowController) {
-	fh := &fh{
-		fc: fc,
-	}
-
-	flowRouter := r.PathPrefix("/").Subrouter()
-	flowRouter.HandleFunc(fc.GetFlow().Path()+"/button", fh.handleFlowButton).Methods(http.MethodPost)
-	flowRouter.HandleFunc(fc.GetFlow().Path()+"/dialog", fh.handleFlowDialog).Methods(http.MethodPost)
-}
-
-func (fh *fh) handleFlowButton(w http.ResponseWriter, r *http.Request) {
+func (f *UserFlow) handleButton(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		common.SlackAttachmentError(w, errors.New("Not authorized"))
@@ -51,76 +31,71 @@ func (fh *fh) handleFlowButton(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rawStep, ok := request.Context[contextStepKey].(string)
+	fromName, ok := request.Context[contextStepKey].(Name)
 	if !ok {
-		common.SlackAttachmentError(w, errors.New("missing step number"))
+		common.SlackAttachmentError(w, errors.New("missing step name"))
 		return
 	}
-
-	var stepNumber int
-	err := json.Unmarshal([]byte(rawStep), &stepNumber)
-	if err != nil {
-		common.SlackAttachmentError(w, errors.Wrap(err, "malformed step number"))
-		return
-	}
-
-	step := fh.fc.GetFlow().Step(stepNumber)
-	if step == nil {
-		common.SlackAttachmentError(w, errors.New("there is no step"))
-		return
-	}
-
-	rawButtonNumber, ok := request.Context[contextButtonIDKey].(string)
+	button, ok := request.Context[contextButtonKey].(int)
 	if !ok {
 		common.SlackAttachmentError(w, errors.New("missing button id"))
 		return
 	}
 
-	var buttonNumber int
-	err = json.Unmarshal([]byte(rawButtonNumber), &buttonNumber)
+	state, err := getState(&f.api.KV, userID, f.Name)
 	if err != nil {
-		common.SlackAttachmentError(w, errors.Wrap(err, "malformed button number"))
+		common.SlackAttachmentError(w, err)
+		return
+	}
+	if state.StepName != fromName {
+		common.SlackAttachmentError(w, errors.Errorf("click from an inactive step: %v"))
+		return
+	}
+	from := f.Step(fromName)
+	if from == nil {
+		common.SlackAttachmentError(w, errors.New("there is no step"))
 		return
 	}
 
-	actions := step.Attachment(fh.fc.pluginURL).Actions
-	if buttonNumber > len(actions)-1 {
-		common.SlackAttachmentError(w, errors.New("button number to high"))
+	// render the "active" state of the current step to validate the button
+	// index.
+	actions := from.Render(state.AppState, f.pluginURL).Actions
+	if button > len(actions)-1 {
+		common.SlackAttachmentError(w, errors.Errorf("button number %v to high, %v buttons", button, len(actions)))
 		return
 	}
 
-	action := actions[buttonNumber]
-	skip, attachment := action.OnClick(userID)
+	action := actions[button]
+	toName, updatedAttachment := action.OnClick(userID, state.AppState)
+	response := model.PostActionIntegrationResponse{
+		Update: f.renderAsPost(from.Name(), *updatedAttachment),
+	}
 
-	response := model.PostActionIntegrationResponse{}
-	post := &model.Post{}
-	model.ParseSlackAttachment(post, []*model.SlackAttachment{fh.fc.toSlackAttachments(attachment, stepNumber)})
-	response.Update = post
-
-	if action.Dialog != nil {
+	if action.OnClickDialog != nil {
 		dialogRequest := model.OpenDialogRequest{
 			TriggerId: request.TriggerId,
-			URL:       fh.fc.getDialogHandlerURL(),
-			Dialog:    action.Dialog.Dialog,
+			URL:       f.pluginURL + MakePath(f.Name) + "/dialog",
+			Dialog:    action.OnClickDialog.Dialog,
 		}
-		dialogRequest.Dialog.State = fmt.Sprintf("%v_%v", rawStep, buttonNumber)
+		dialogRequest.Dialog.State = fmt.Sprintf("%v,%v", fromName, button)
 
-		err = fh.fc.OpenInteractiveDialog(dialogRequest)
+		err = f.api.Frontend.OpenInteractiveDialog(dialogRequest)
 		if err != nil {
-			fh.fc.Logger.WithError(err).Debugf("Failed to open interactive dialog")
+			common.SlackAttachmentError(w, err)
+			return
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
 
-	err = fh.fc.NextStep(userID, stepNumber, skip)
+	err = f.Go(userID, toName)
 	if err != nil {
-		fh.fc.Logger.WithError(err).Debugf("To advance to next step")
+		f.api.Log.Warn("failed to advance flow to next step", "flow_name", f.Name, "from", fromName, "to", toName, "error", err.Error())
 	}
 }
 
-func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
+func (f *UserFlow) handleDialog(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		common.DialogError(w, errors.New("not authorized"))
@@ -133,70 +108,68 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	states := strings.Split(request.State, "_")
-	if len(states) != 2 {
+	data := strings.Split(request.State, ",")
+	if len(data) != 2 {
 		common.DialogError(w, errors.New("invalid request"))
 		return
 	}
-
-	stepNumber, err := strconv.Atoi(states[0])
-	if err != nil {
-		common.DialogError(w, errors.Wrap(err, "malformed step number"))
-		return
-	}
-
-	step := fh.fc.GetFlow().Step(stepNumber)
-	if step == nil {
-		common.DialogError(w, errors.New("there is no step"))
-		return
-	}
-
-	buttonNumber, err := strconv.Atoi(states[1])
+	fromName := Name(data[0])
+	button, err := strconv.Atoi(data[1])
 	if err != nil {
 		common.DialogError(w, errors.Wrap(err, "malformed button number"))
 		return
 	}
 
-	actions := step.Attachment(fh.fc.pluginURL).Actions
-	if buttonNumber > len(actions)-1 {
-		common.DialogError(w, errors.New("button number to high"))
+	state, err := getState(&f.api.KV, userID, f.Name)
+	if err != nil {
+		common.DialogError(w, err)
+		return
+	}
+	if state.StepName != fromName {
+		common.DialogError(w, errors.Errorf("click from an inactive step: %v"))
+		return
+	}
+	from := f.Step(fromName)
+	if from == nil {
+		common.DialogError(w, errors.New("there is no step"))
 		return
 	}
 
-	action := actions[buttonNumber]
+	actions := from.Render(state.AppState, f.pluginURL).Actions
+	if button > len(actions)-1 {
+		common.DialogError(w, errors.New("button number to high"))
+		return
+	}
+	action := actions[button]
 
 	var (
-		skip          int
-		attachment    *steps.Attachment
-		resposeError  string
-		resposeErrors map[string]string
+		toName            Name
+		updatedAttachment *Attachment
+		responseError     string
+		responseErrors    map[string]string
 	)
 
 	if request.Cancelled {
-		skip, attachment = action.Dialog.OnCancel(userID)
+		toName, updatedAttachment = action.OnClickDialog.OnCancel(userID, state.AppState)
 	} else {
-		skip, attachment, resposeError, resposeErrors = action.Dialog.OnDialogSubmit(userID, request.Submission)
+		toName, updatedAttachment, responseError, responseErrors = action.OnClickDialog.OnSubmit(userID, request.Submission, state.AppState)
+	}
+	// Empty next step name in the response indicates advancing to the next step
+	// in the flow. To stay on the same step the handlers should return the step
+	// name.
+	if toName == "" {
+		toName = f.next(fromName)
 	}
 
 	response := model.SubmitDialogResponse{
-		Error:  resposeError,
-		Errors: resposeErrors,
+		Error:  responseError,
+		Errors: responseErrors,
 	}
 
-	if attachment != nil {
-		var postID string
-		postID, err = fh.fc.getPostID(userID, step)
-		if err != nil {
-			common.DialogError(w, errors.Wrap(err, "Failed to get post"))
-			return
-		}
-
-		post := &model.Post{
-			Id: postID,
-		}
-
-		model.ParseSlackAttachment(post, []*model.SlackAttachment{fh.fc.toSlackAttachments(*attachment, stepNumber)})
-		err = fh.fc.UpdatePost(post)
+	if updatedAttachment != nil && state.PostID != "" {
+		post := f.renderAsPost(fromName, *updatedAttachment)
+		post.Id = state.PostID
+		err = f.api.Post.UpdatePost(post)
 		if err != nil {
 			common.DialogError(w, errors.Wrap(err, "Failed to update post"))
 			return
@@ -205,11 +178,17 @@ func (fh *fh) handleFlowDialog(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
-
-	if resposeError == "" && resposeErrors == nil {
-		err = fh.fc.NextStep(userID, stepNumber, skip)
-		if err != nil {
-			fh.fc.Logger.WithError(err).Debugf("To advance to next step")
-		}
+	if responseError != "" || responseErrors != nil {
+		return
 	}
+
+	// advance to next step if needed.
+	err = f.Go(userID, toName)
+	if err != nil {
+		f.api.Log.Warn("failed to advance to next step", "flow", f.Name, "step", toName)
+	}
+}
+
+func MakePath(name Name) string {
+	return "/" + url.PathEscape(strings.Trim(string(name), "/"))
 }
