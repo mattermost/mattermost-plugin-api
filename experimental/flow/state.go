@@ -1,7 +1,9 @@
 package flow
 
 import (
+	"bytes"
 	"errors"
+	"html/template"
 )
 
 // JSON-serializable flow state.
@@ -30,6 +32,12 @@ func (f *UserFlow) storeState(userID string, state flowState) error {
 func (f *UserFlow) getState(userID string) (flowState, error) {
 	state := flowState{}
 	err := f.api.KV.Get(kvKey(userID, f.Name), &state)
+	if err != nil {
+		return flowState{}, err
+	}
+	if state.AppState == nil {
+		state.AppState = State{}
+	}
 	return state, err
 }
 
@@ -39,4 +47,17 @@ func (f *UserFlow) removeState(userID string) error {
 
 func kvKey(userID string, flowName Name) string {
 	return "_flow-" + userID + "-" + string(flowName)
+}
+
+func formatState(source string, state State) string {
+	t, err := template.New("message").Parse(source)
+	if err != nil {
+		return source + " ###ERROR: " + err.Error()
+	}
+	buf := bytes.NewBuffer(nil)
+	err = t.Execute(buf, state)
+	if err != nil {
+		return source + " ###ERROR: " + err.Error()
+	}
+	return buf.String()
 }

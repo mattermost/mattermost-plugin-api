@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -114,7 +115,7 @@ func (f UserFlow) Go(userID string, toName Name) error {
 		return errors.Errorf("%s: step not found", toName)
 	}
 
-	post := f.renderAsPost(toName, to.Render(state.AppState, f.pluginURL))
+	post := f.renderAsPost(toName, to.Render(state.AppState, f.pluginURL, false, 0))
 	err = f.api.Post.DM(f.botUserID, userID, post)
 	if err != nil {
 		return err
@@ -129,7 +130,7 @@ func (f UserFlow) Go(userID string, toName Name) error {
 
 	// If the "to" step is not actionable, proceed to the next step,
 	// recursively.
-	if len(f.StepActions(to, state.AppState)) == 0 {
+	if len(f.Buttons(to, state.AppState)) == 0 {
 		return f.Go(userID, f.next(toName))
 	}
 
@@ -148,28 +149,31 @@ func (f UserFlow) next(fromName Name) Name {
 	return ""
 }
 
-func (f UserFlow) renderAsPost(name Name, attachment Attachment) *model.Post {
+func (f UserFlow) renderAsPost(stepName Name, attachment Attachment) *model.Post {
 	post := model.Post{}
-	updated := []Action{}
-	for i, a := range attachment.Actions {
-		a.Integration = &model.PostActionIntegration{
-			URL: f.pluginURL + makePath(f.Name) + "/button",
-			Context: map[string]interface{}{
-				contextStepKey:   string(name),
-				contextButtonKey: i,
-			},
-		}
-		// append by value, ok to use the modified loop variable
-		updated = append(updated, a)
+	sa := *attachment.SlackAttachment
+	for i, b := range attachment.Buttons {
+		sa.Actions = append(sa.Actions, f.renderButton(b, stepName, i))
 	}
-	attachment.Actions = updated
-
-	model.ParseSlackAttachment(&post, []*model.SlackAttachment{
-		attachment.asSlackAttachment(),
-	})
+	model.ParseSlackAttachment(&post, []*model.SlackAttachment{&sa})
 	return &post
 }
 
 func makePath(name Name) string {
 	return "/" + url.PathEscape(strings.Trim(string(name), "/"))
+}
+
+func Goto(next Name) func(string, State) (Name, State) {
+	return func(_ string, appState State) (Name, State) {
+		return next, appState
+	}
+}
+
+func DialogGoto(next Name) func(string, map[string]interface{}, State) (Name, State, string, map[string]string) {
+	return func(userID string, submitted map[string]interface{}, appState State) (Name, State, string, map[string]string) {
+		for k, v := range submitted {
+			appState[k] = fmt.Sprintf("%v", v)
+		}
+		return next, appState, "", nil
+	}
 }
