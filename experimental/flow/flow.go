@@ -18,7 +18,7 @@ type Name string
 
 type Flow interface {
 	ForUser(userID string) Flow
-	
+
 	Go(Name) error
 	Start(initial State) error
 	Finish() error
@@ -145,11 +145,11 @@ func (f UserFlow) Go(toName Name) error {
 	if to == nil {
 		return errors.Errorf("%s: step not found", toName)
 	}
-	post := f.renderAsPost(toName, to.Render(state.AppState, f.pluginURL, false, 0))
+	post := f.renderAsPost(toName, to.Render(state.AppState, false, 0))
 	err = f.api.Post.DM(f.botUserID, f.userID, post)
 	if err != nil {
 		return err
-	}	
+	}
 	if to.IsTerminal() {
 		return f.Finish()
 	}

@@ -22,7 +22,7 @@ const (
 type Step interface {
 	Name() Name
 	IsTerminal() bool
-	Render(state State, pluginURL string, done bool, selectedButton int) Attachment
+	Render(state State, done bool, selectedButton int) Attachment
 }
 
 type Attachment struct {
@@ -104,7 +104,7 @@ func (s step) WithImage(pluginURL, path string) *step {
 	return &s
 }
 
-func (s *step) Render(state State, pluginURL string, done bool, button int) Attachment {
+func (s *step) Render(state State, done bool, button int) Attachment {
 	buttons := s.getButtons(state)
 	// if moving to a different step, indicate the performed selection by
 	// including only the selected button, disabled.
@@ -115,13 +115,13 @@ func (s *step) Render(state State, pluginURL string, done bool, button int) Atta
 	}
 
 	a := Attachment{
-		SlackAttachment: s.getSlackAttachment(state, pluginURL),
+		SlackAttachment: s.getSlackAttachment(state),
 		Buttons:         buttons,
 	}
 	return a
 }
 
-func (s *step) getSlackAttachment(state State, pluginURL string) *model.SlackAttachment {
+func (s *step) getSlackAttachment(state State) *model.SlackAttachment {
 	a := s.SlackAttachment
 	a.Pretext = formatState(s.Pretext, state)
 	a.Title = formatState(s.Title, state)
@@ -164,5 +164,5 @@ func (f UserFlow) renderButton(b Button, stepName Name, i int) *model.PostAction
 }
 
 func (f UserFlow) Buttons(step Step, appState State) []Button {
-	return step.Render(appState, f.pluginURL, false, 0).Buttons
+	return step.Render(appState, false, 0).Buttons
 }

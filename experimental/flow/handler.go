@@ -103,7 +103,7 @@ func (f *UserFlow) handleButton(w http.ResponseWriter, r *http.Request) {
 	// if toName is different, render the "done" state of the "from" step.
 	var post *model.Post
 	if toName != fromName {
-		post = f.renderAsPost(from.Name(), from.Render(appState, f.pluginURL, true, buttonIndex))
+		post = f.renderAsPost(from.Name(), from.Render(appState, true, buttonIndex))
 		post.Id = state.PostID
 	}
 
@@ -172,7 +172,7 @@ func (f *UserFlow) handleDialog(w http.ResponseWriter, r *http.Request) {
 
 		// if toName is different, render the "done" state of the "from" step.
 		if toName != fromName {
-			post := f.renderAsPost(from.Name(), from.Render(state.AppState, f.pluginURL, true, buttonIndex))
+			post := f.renderAsPost(from.Name(), from.Render(state.AppState, true, buttonIndex))
 			post.Id = state.PostID
 			err = f.api.Post.UpdatePost(post)
 			if err != nil {
@@ -204,7 +204,7 @@ func (f *UserFlow) getStepButton(fromName Name, buttonIndex int) (Step, Button, 
 		return nil, Button{}, flowState{}, err
 	}
 	if state.StepName != fromName {
-		return nil, Button{}, flowState{}, errors.Errorf("click from an inactive step: %v")
+		return nil, Button{}, flowState{}, errors.Errorf("click from an inactive step: %v", fromName)
 	}
 	from := f.steps[fromName]
 	if from == nil {

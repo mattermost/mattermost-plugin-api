@@ -21,7 +21,7 @@ type flowState struct {
 	AppState State
 }
 
-func (f *UserFlow) State() (State, string) {
+func (f *UserFlow) State() (_ State, userID string) {
 	return f.appState.MergeWith(nil), f.userID
 }
 
