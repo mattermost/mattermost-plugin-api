@@ -6,6 +6,9 @@ import (
 	"html/template"
 )
 
+// State is the "app"'s state
+type State map[string]string
+
 // JSON-serializable flow state.
 type flowState struct {
 	// The name of the step.
@@ -18,31 +21,59 @@ type flowState struct {
 	AppState State
 }
 
-func (f *UserFlow) storeState(userID string, state flowState) error {
-	ok, err := f.api.KV.Set(kvKey(userID, f.Name), state)
+func (f *UserFlow) State() (State, string) {
+	return f.appState.MergeWith(nil), f.userID
+}
+
+func (s State) MergeWith(update State) State {
+	n := State{}
+	for k, v := range s {
+		n[k] = v
+	}
+	for k, v := range update {
+		n[k] = v
+	}
+	return n
+}
+
+func (f *UserFlow) storeState(state flowState) error {
+	if f.userID == "" {
+		return errors.New("no user specified")
+	}
+	ok, err := f.api.KV.Set(kvKey(f.userID, f.name), state)
 	if err != nil {
 		return err
 	}
 	if !ok {
 		return errors.New("value not set without errors")
 	}
+
+	f.appState = state.AppState
 	return nil
 }
 
-func (f *UserFlow) getState(userID string) (flowState, error) {
+func (f *UserFlow) getState() (flowState, error) {
+	if f.userID == "" {
+		return flowState{}, errors.New("no user specified")
+	}
 	state := flowState{}
-	err := f.api.KV.Get(kvKey(userID, f.Name), &state)
+	err := f.api.KV.Get(kvKey(f.userID, f.name), &state)
 	if err != nil {
 		return flowState{}, err
 	}
 	if state.AppState == nil {
 		state.AppState = State{}
 	}
+
+	f.appState = state.AppState
 	return state, err
 }
 
-func (f *UserFlow) removeState(userID string) error {
-	return f.api.KV.Delete(kvKey(userID, f.Name))
+func (f *UserFlow) removeState() error {
+	if f.userID == "" {
+		return errors.New("no user specified")
+	}
+	return f.api.KV.Delete(kvKey(f.userID, f.name))
 }
 
 func kvKey(userID string, flowName Name) string {

@@ -21,6 +21,7 @@ const (
 
 type Step interface {
 	Name() Name
+	IsTerminal() bool
 	Render(state State, pluginURL string, done bool, selectedButton int) Attachment
 }
 
@@ -35,11 +36,10 @@ type Button struct {
 	Color    Color
 
 	// OnClick is called when the button is clicked. It returns the next step's
-	// name and the updated state. Returning nil for state resets it to empty
-	// values.
+	// name and the state updates to apply.
 	//
 	// If Dialog is also specified, OnClick is executed first.
-	OnClick func(userID string, state State) (Name, State)
+	OnClick func(f Flow) (Name, State)
 
 	// Dialog is the interactive dialog to display if the button is clicked
 	// (OnClick is executed first). OnDialogSubmit must be provided.
@@ -47,15 +47,16 @@ type Button struct {
 
 	// Function that is called when the dialog box is submitted. It can return a
 	// general error, or field-specific errors. On success it returns the name
-	// of the next step, and the updated state.
-	OnDialogSubmit func(userID string, submitted map[string]interface{}, appState State) (Name, State, string, map[string]string)
+	// of the next step, and the state updates to apply.
+	OnDialogSubmit func(f Flow, submitted map[string]interface{}) (Name, State, string, map[string]string)
 }
 
 type step struct {
 	model.SlackAttachment
 
-	name    Name
-	buttons []Button
+	name     Name
+	terminal bool
+	buttons  []Button
 }
 
 var _ Step = (*step)(nil)
@@ -66,13 +67,13 @@ func NewStep(name Name) *step {
 	}
 }
 
-func (s step) WithColor(color Color) *step {
-	s.Color = string(color)
+func (s step) Terminal() *step {
+	s.terminal = true
 	return &s
 }
 
-func (s step) WithPretext(text string) *step {
-	s.Pretext = text
+func (s step) WithColor(color Color) *step {
+	s.Color = string(color)
 	return &s
 }
 
@@ -83,6 +84,11 @@ func (s step) WithTitle(text string) *step {
 
 func (s step) WithMessage(text string) *step {
 	s.Text = text
+	return &s
+}
+
+func (s step) WithPretext(text string) *step {
+	s.Pretext = text
 	return &s
 }
 
@@ -138,13 +144,17 @@ func (s *step) Name() Name {
 	return s.name
 }
 
+func (s *step) IsTerminal() bool {
+	return s.terminal
+}
+
 func (f UserFlow) renderButton(b Button, stepName Name, i int) *model.PostAction {
 	return &model.PostAction{
 		Name:     b.Name,
 		Disabled: b.Disabled,
 		Style:    string(b.Color),
 		Integration: &model.PostActionIntegration{
-			URL: f.pluginURL + makePath(f.Name) + "/button",
+			URL: f.pluginURL + makePath(f.name) + "/button",
 			Context: map[string]interface{}{
 				contextStepKey:   string(stepName),
 				contextButtonKey: strconv.Itoa(i),

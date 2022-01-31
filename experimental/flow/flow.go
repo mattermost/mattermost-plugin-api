@@ -16,12 +16,13 @@ import (
 
 type Name string
 
-type State map[string]string
-
 type Flow interface {
-	Step(Name) Step
-	Go(userID string, to Name) error
-	Start(userID string, appState State) error
+	ForUser(userID string) Flow
+	
+	Go(Name) error
+	Start(initial State) error
+	Finish() error
+	State() (_ State, userID string)
 }
 
 const (
@@ -30,7 +31,8 @@ const (
 )
 
 type UserFlow struct {
-	Name Name
+	name   Name
+	userID string
 
 	api       *pluginapi.Client
 	pluginURL string
@@ -38,6 +40,9 @@ type UserFlow struct {
 
 	steps map[Name]Step
 	index []Name
+
+	appState State
+	done     func(userID string, state State) error
 }
 
 var _ Flow = (*UserFlow)(nil)
@@ -47,11 +52,21 @@ var _ Flow = (*UserFlow)(nil)
 // name must be a unique identifier for the flow within the plugin.
 func NewUserFlow(name Name, api *pluginapi.Client, pluginURL, botUserID string) *UserFlow {
 	return &UserFlow{
-		Name:      name,
+		name:      name,
 		api:       api,
 		pluginURL: pluginURL,
 		botUserID: botUserID,
+		steps:     map[Name]Step{},
 	}
+}
+
+func (f UserFlow) ForUser(userID string) Flow {
+	return f.forUser(userID)
+}
+
+func (f UserFlow) forUser(userID string) *UserFlow {
+	f.userID = userID
+	return &f
 }
 
 func (f UserFlow) WithSteps(orderedSteps ...Step) *UserFlow {
@@ -59,46 +74,63 @@ func (f UserFlow) WithSteps(orderedSteps ...Step) *UserFlow {
 		f.steps = map[Name]Step{}
 	}
 	for _, step := range orderedSteps {
-		name := step.Name()
-		if _, ok := f.steps[name]; ok {
-			f.api.Log.Warn("ignored duplicate step name", "name", name, "flow", f.Name)
+		stepName := step.Name()
+		if _, ok := f.steps[stepName]; ok {
+			f.api.Log.Warn("ignored duplicate step name", "name", stepName, "flow", f.name)
 			continue
 		}
-		f.steps[name] = step
-		f.index = append(f.index, name)
+		f.steps[stepName] = step
+		f.index = append(f.index, stepName)
 	}
+	return &f
+}
+
+func (f UserFlow) OnDone(done func(string, State) error) *UserFlow {
+	f.done = done
 	return &f
 }
 
 func (f UserFlow) InitHTTP(r *mux.Router) *UserFlow {
 	flowRouter := r.PathPrefix("/").Subrouter()
-	flowRouter.HandleFunc(makePath(f.Name)+"/button", f.handleButton).Methods(http.MethodPost)
-	flowRouter.HandleFunc(makePath(f.Name)+"/dialog", f.handleDialog).Methods(http.MethodPost)
+	flowRouter.HandleFunc(makePath(f.name)+"/button", f.handleButton).Methods(http.MethodPost)
+	flowRouter.HandleFunc(makePath(f.name)+"/dialog", f.handleDialog).Methods(http.MethodPost)
 	return &f
 }
 
-func (f UserFlow) Step(name Name) Step {
-	step, _ := f.steps[name]
-	return step
-}
-
-func (f UserFlow) Start(userID string, appState State) error {
+func (f UserFlow) Start(appState State) error {
 	if len(f.index) == 0 {
 		return errors.New("no steps")
 	}
 
-	err := f.storeState(userID, flowState{
-		AppState: appState,
-	})
+	err := f.storeState(flowState{AppState: appState})
 	if err != nil {
 		return err
 	}
 
-	return f.Go(userID, f.index[0])
+	return f.Go(f.index[0])
 }
 
-func (f UserFlow) Go(userID string, toName Name) error {
-	state, err := f.getState(userID)
+func (f UserFlow) Finish() error {
+	state, err := f.getState()
+	if err != nil {
+		return err
+	}
+
+	f.api.Log.Debug("flow: done", "flow", f.name, "state", state)
+	_ = f.removeState()
+
+	if f.done != nil {
+		err = f.done(f.userID, state.AppState)
+	}
+	return err
+}
+
+func (f UserFlow) Go(toName Name) error {
+	if toName == "" {
+		return f.Finish()
+	}
+
+	state, err := f.getState()
 	if err != nil {
 		return err
 	}
@@ -106,24 +138,25 @@ func (f UserFlow) Go(userID string, toName Name) error {
 		// Stay at the current step
 		return nil
 	}
-	if toName == "" {
-		return errors.New("<>/<> DONE")
-	}
 
-	to := f.Step(toName)
+	f.api.Log.Debug("flow: starting step", "flow", f.name, "step", toName, "state", state)
+
+	to := f.steps[toName]
 	if to == nil {
 		return errors.Errorf("%s: step not found", toName)
 	}
-
 	post := f.renderAsPost(toName, to.Render(state.AppState, f.pluginURL, false, 0))
-	err = f.api.Post.DM(f.botUserID, userID, post)
+	err = f.api.Post.DM(f.botUserID, f.userID, post)
 	if err != nil {
 		return err
+	}	
+	if to.IsTerminal() {
+		return f.Finish()
 	}
 
 	state.StepName = toName
 	state.PostID = post.Id
-	err = f.storeState(userID, state)
+	err = f.storeState(state)
 	if err != nil {
 		return err
 	}
@@ -131,7 +164,7 @@ func (f UserFlow) Go(userID string, toName Name) error {
 	// If the "to" step is not actionable, proceed to the next step,
 	// recursively.
 	if len(f.Buttons(to, state.AppState)) == 0 {
-		return f.Go(userID, f.next(toName))
+		return f.Go(f.next(toName))
 	}
 
 	return nil
@@ -163,17 +196,18 @@ func makePath(name Name) string {
 	return "/" + url.PathEscape(strings.Trim(string(name), "/"))
 }
 
-func Goto(next Name) func(string, State) (Name, State) {
-	return func(_ string, appState State) (Name, State) {
-		return next, appState
+func Goto(toName Name) func(Flow) (Name, State) {
+	return func(_ Flow) (Name, State) {
+		return toName, nil
 	}
 }
 
-func DialogGoto(next Name) func(string, map[string]interface{}, State) (Name, State, string, map[string]string) {
-	return func(userID string, submitted map[string]interface{}, appState State) (Name, State, string, map[string]string) {
+func DialogGoto(toName Name) func(Flow, map[string]interface{}) (Name, State, string, map[string]string) {
+	return func(_ Flow, submitted map[string]interface{}) (Name, State, string, map[string]string) {
+		stateUpdate := State{}
 		for k, v := range submitted {
-			appState[k] = fmt.Sprintf("%v", v)
+			stateUpdate[k] = fmt.Sprintf("%v", v)
 		}
-		return next, appState, "", nil
+		return toName, stateUpdate, "", nil
 	}
 }
