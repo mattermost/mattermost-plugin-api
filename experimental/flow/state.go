@@ -9,22 +9,6 @@ import (
 // State is the "app"'s state
 type State map[string]string
 
-// JSON-serializable flow state.
-type flowState struct {
-	// The name of the step.
-	StepName Name
-
-	// ID of the post produced by the step.
-	PostID string
-
-	// Application-level state.
-	AppState State
-}
-
-func (f *UserFlow) State() (_ State, userID string) {
-	return f.appState.MergeWith(nil), f.userID
-}
-
 func (s State) MergeWith(update State) State {
 	n := State{}
 	for k, v := range s {
@@ -36,11 +20,25 @@ func (s State) MergeWith(update State) State {
 	return n
 }
 
-func (f *UserFlow) storeState(state flowState) error {
-	if f.userID == "" {
+// JSON-serializable flow state.
+type flowState struct {
+	// The name of the step.
+	StepName Name
+
+	Done bool
+
+	// ID of the post produced by the step.
+	PostID string
+
+	// Application-level state.
+	AppState State
+}
+
+func (f *Flow) storeState(state flowState) error {
+	if f.UserID == "" {
 		return errors.New("no user specified")
 	}
-	ok, err := f.api.KV.Set(kvKey(f.userID, f.name), state)
+	ok, err := f.api.KV.Set(kvKey(f.UserID, f.name), state)
 	if err != nil {
 		return err
 	}
@@ -48,16 +46,16 @@ func (f *UserFlow) storeState(state flowState) error {
 		return errors.New("value not set without errors")
 	}
 
-	f.appState = state.AppState
+	f.State = state.AppState
 	return nil
 }
 
-func (f *UserFlow) getState() (flowState, error) {
-	if f.userID == "" {
+func (f *Flow) getState() (flowState, error) {
+	if f.UserID == "" {
 		return flowState{}, errors.New("no user specified")
 	}
 	state := flowState{}
-	err := f.api.KV.Get(kvKey(f.userID, f.name), &state)
+	err := f.api.KV.Get(kvKey(f.UserID, f.name), &state)
 	if err != nil {
 		return flowState{}, err
 	}
@@ -65,15 +63,16 @@ func (f *UserFlow) getState() (flowState, error) {
 		state.AppState = State{}
 	}
 
-	f.appState = state.AppState
+	f.State = state.AppState
 	return state, err
 }
 
-func (f *UserFlow) removeState() error {
-	if f.userID == "" {
+func (f *Flow) removeState() error {
+	if f.UserID == "" {
 		return errors.New("no user specified")
 	}
-	return f.api.KV.Delete(kvKey(f.userID, f.name))
+	f.State = State{}
+	return f.api.KV.Delete(kvKey(f.UserID, f.name))
 }
 
 func kvKey(userID string, flowName Name) string {

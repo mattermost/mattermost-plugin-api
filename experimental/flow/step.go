@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/mattermost/mattermost-server/v6/model"
 )
 
@@ -19,15 +21,12 @@ const (
 	ColorDanger  Color = "danger"
 )
 
-type Step interface {
-	Name() Name
-	IsTerminal() bool
-	Render(state State, done bool, selectedButton int) Attachment
-}
-
-type Attachment struct {
-	SlackAttachment *model.SlackAttachment
-	Buttons         []Button
+type Step struct {
+	name      Name
+	template  *model.SlackAttachment
+	forwardTo Name
+	terminal  bool
+	buttons   []Button
 }
 
 type Button struct {
@@ -39,7 +38,7 @@ type Button struct {
 	// name and the state updates to apply.
 	//
 	// If Dialog is also specified, OnClick is executed first.
-	OnClick func(f Flow) (Name, State)
+	OnClick func(f *Flow) (Name, State, error)
 
 	// Dialog is the interactive dialog to display if the button is clicked
 	// (OnClick is executed first). OnDialogSubmit must be provided.
@@ -48,113 +47,140 @@ type Button struct {
 	// Function that is called when the dialog box is submitted. It can return a
 	// general error, or field-specific errors. On success it returns the name
 	// of the next step, and the state updates to apply.
-	OnDialogSubmit func(f Flow, submitted map[string]interface{}) (Name, State, string, map[string]string)
+	OnDialogSubmit func(f *Flow, submitted map[string]interface{}) (Name, State, map[string]string, error)
 }
 
-type step struct {
-	model.SlackAttachment
-
-	name     Name
-	terminal bool
-	buttons  []Button
-}
-
-var _ Step = (*step)(nil)
-
-func NewStep(name Name) *step {
-	return &step{
-		name: name,
+func NewStep(name Name) Step {
+	return Step{
+		name:     name,
+		template: &model.SlackAttachment{},
 	}
 }
 
-func (s step) Terminal() *step {
+func (s Step) WithButtons(buttons ...Button) Step {
+	s.buttons = buttons
+	return s
+}
+
+func (s Step) Terminal() Step {
 	s.terminal = true
-	return &s
+	return s
 }
 
-func (s step) WithColor(color Color) *step {
-	s.Color = string(color)
-	return &s
+func (s Step) Next(name Name) Step {
+	s.forwardTo = name
+	return s
 }
 
-func (s step) WithTitle(text string) *step {
-	s.Title = text
-	return &s
-}
-
-func (s step) WithMessage(text string) *step {
-	s.Text = text
-	return &s
-}
-
-func (s step) WithPretext(text string) *step {
-	s.Pretext = text
-	return &s
-}
-
-func (s step) WithButton(button Button) *step {
-	s.buttons = append(s.buttons, button)
-	return &s
-}
-
-func (s step) WithImage(pluginURL, path string) *step {
+func (s Step) WithImage(pluginURL, path string) Step {
 	if path != "" {
-		s.ImageURL = pluginURL + "/" + strings.TrimPrefix(path, "/")
+		s.template.ImageURL = pluginURL + "/" + strings.TrimPrefix(path, "/")
 	}
-	return &s
+	return s
 }
 
-func (s *step) Render(state State, done bool, button int) Attachment {
-	buttons := s.getButtons(state)
-	// if moving to a different step, indicate the performed selection by
-	// including only the selected button, disabled.
+func (s Step) WithPretext(text string) Step {
+	s.template.Pretext = text
+	return s
+}
+
+func (s Step) WithTitle(text string) Step {
+	s.template.Title = text
+	return s
+}
+
+func (s Step) WithText(text string) Step {
+	s.template.Text = text
+	return s
+}
+
+func (s Step) Do(f *Flow) (*model.Post, bool, error) {
+	return s.render(f, false, 0)
+}
+
+func (s Step) Done(f *Flow, selectedButton int) (*model.Post, error) {
+	if s.forwardTo != "" {
+		return nil, nil
+	}
+	post, _, err := s.render(f, true, selectedButton)
+	return post, err
+}
+
+func (s Step) render(f *Flow, done bool, selectedButton int) (*model.Post, bool, error) {
+	sa := processAttachment(s.template, f.State)
+	post := model.Post{}
+	model.ParseSlackAttachment(&post, []*model.SlackAttachment{sa})
+
+	if s.terminal {
+		// Nothing else to do, do not display buttons on terminal posts.
+		return &post, true, nil
+	}
+
+	buttons := processButtons(s.buttons, f.State)
+
+	attachments, ok := post.GetProp("attachments").([]*model.SlackAttachment)
+	if !ok || len(attachments) != 1 {
+		return nil, false, errors.New("expected 1 slack attachment")
+	}
+	var actions []*model.PostAction
 	if done {
-		selected := buttons[button]
-		selected.Disabled = true
-		buttons = []Button{selected}
+		if selectedButton > 0 {
+			action := renderButton(buttons[selectedButton-1], s.name, selectedButton)
+			action.Disabled = true
+			actions = append(actions, action)
+		}
+	} else {
+		for i, b := range buttons {
+			actions = append(actions, renderButton(b, s.name, i+1))
+		}
 	}
-
-	a := Attachment{
-		SlackAttachment: s.getSlackAttachment(state),
-		Buttons:         buttons,
-	}
-	return a
+	attachments[0].Actions = actions
+	return &post, false, nil
 }
 
-func (s *step) getSlackAttachment(state State) *model.SlackAttachment {
-	a := s.SlackAttachment
-	a.Pretext = formatState(s.Pretext, state)
-	a.Title = formatState(s.Title, state)
-	a.Text = formatState(s.Text, state)
+func processAttachment(attachment *model.SlackAttachment, state State) *model.SlackAttachment {
+	if attachment == nil {
+		return &model.SlackAttachment{Text: "ERROR"}
+	}
+	a := *attachment
+	a.Pretext = formatState(attachment.Pretext, state)
+	a.Title = formatState(attachment.Title, state)
+	a.Text = formatState(attachment.Text, state)
 	a.Fallback = fmt.Sprintf("%s: %s", a.Title, a.Text)
 	return &a
 }
 
-func (s *step) getButtons(state State) []Button {
-	var buttons []Button
-	for _, b := range s.buttons {
+func processButtons(in []Button, state State) []Button {
+	var out []Button
+	for _, b := range in {
 		button := b
 		button.Name = formatState(b.Name, state)
-		buttons = append(buttons, b)
+		out = append(out, b)
 	}
-	return buttons
+	return out
 }
 
-func (s *step) Name() Name {
-	return s.name
+func processDialog(in *model.Dialog, state State) model.Dialog {
+	d := *in
+	d.Title = formatState(d.Title, state)
+	d.IntroductionText = formatState(d.IntroductionText, state)
+	d.SubmitLabel = formatState(d.SubmitLabel, state)
+	for i := range d.Elements {
+		d.Elements[i].DisplayName = formatState(d.Elements[i].DisplayName, state)
+		d.Elements[i].Name = formatState(d.Elements[i].Name, state)
+		d.Elements[i].Default = formatState(d.Elements[i].Default, state)
+		d.Elements[i].Placeholder = formatState(d.Elements[i].Placeholder, state)
+		d.Elements[i].HelpText = formatState(d.Elements[i].HelpText, state)
+	}
+	return d
 }
 
-func (s *step) IsTerminal() bool {
-	return s.terminal
-}
-
-func (f UserFlow) renderButton(b Button, stepName Name, i int) *model.PostAction {
+func renderButton(b Button, stepName Name, i int) *model.PostAction {
 	return &model.PostAction{
 		Name:     b.Name,
 		Disabled: b.Disabled,
 		Style:    string(b.Color),
 		Integration: &model.PostActionIntegration{
-			URL: f.pluginURL + makePath(f.name) + "/button",
 			Context: map[string]interface{}{
 				contextStepKey:   string(stepName),
 				contextButtonKey: strconv.Itoa(i),
@@ -163,6 +189,34 @@ func (f UserFlow) renderButton(b Button, stepName Name, i int) *model.PostAction
 	}
 }
 
-func (f UserFlow) Buttons(step Step, appState State) []Button {
-	return step.Render(appState, false, 0).Buttons
+func buttonContext(request *model.PostActionIntegrationRequest) (Name, int, error) {
+	fromString, ok := request.Context[contextStepKey].(string)
+	if !ok {
+		return "", 0, errors.New("missing step name")
+	}
+	fromName := Name(fromString)
+
+	buttonStr, ok := request.Context[contextButtonKey].(string)
+	if !ok {
+		return "", 0, errors.New("missing  button id")
+	}
+	buttonIndex, err := strconv.Atoi(buttonStr)
+	if err != nil {
+		return "", 0, errors.Wrap(err, "invalid button number")
+	}
+
+	return fromName, buttonIndex, nil
+}
+
+func dialogContext(request *model.SubmitDialogRequest) (Name, int, error) {
+	data := strings.Split(request.State, ",")
+	if len(data) != 2 {
+		return "", 0, errors.New("invalid request")
+	}
+	fromName := Name(data[0])
+	buttonIndex, err := strconv.Atoi(data[1])
+	if err != nil {
+		return "", 0, errors.Wrap(err, "malformed button number")
+	}
+	return fromName, buttonIndex, nil
 }
