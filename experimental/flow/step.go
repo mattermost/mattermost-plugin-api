@@ -125,13 +125,13 @@ func (s Step) render(f *Flow, done bool, selectedButton int) (*model.Post, bool,
 	var actions []*model.PostAction
 	if done {
 		if selectedButton > 0 {
-			action := renderButton(buttons[selectedButton-1], s.name, selectedButton)
+			action := renderButton(buttons[selectedButton-1], s.name, selectedButton, f.State)
 			action.Disabled = true
 			actions = append(actions, action)
 		}
 	} else {
 		for i, b := range buttons {
-			actions = append(actions, renderButton(b, s.name, i+1))
+			actions = append(actions, renderButton(b, s.name, i+1, f.State))
 		}
 	}
 	attachments[0].Actions = actions
@@ -175,9 +175,9 @@ func processDialog(in *model.Dialog, state State) model.Dialog {
 	return d
 }
 
-func renderButton(b Button, stepName Name, i int) *model.PostAction {
+func renderButton(b Button, stepName Name, i int, state State) *model.PostAction {
 	return &model.PostAction{
-		Name:     b.Name,
+		Name:     formatState(b.Name, state),
 		Disabled: b.Disabled,
 		Style:    string(b.Color),
 		Integration: &model.PostActionIntegration{
