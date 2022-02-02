@@ -57,8 +57,8 @@ func NewStep(name Name) Step {
 	}
 }
 
-func (s Step) WithButtons(buttons ...Button) Step {
-	s.buttons = buttons
+func (s Step) WithButton(buttons ...Button) Step {
+	s.buttons = append(s.buttons, buttons...)
 	return s
 }
 
