@@ -7,7 +7,7 @@ import (
 )
 
 // State is the "app"'s state
-type State map[string]string
+type State map[string]interface{}
 
 func (s State) MergeWith(update State) State {
 	n := State{}
@@ -18,6 +18,48 @@ func (s State) MergeWith(update State) State {
 		n[k] = v
 	}
 	return n
+}
+
+// GetString return the value to a given key as a string.
+// If the key is not found or isn't a string, an empty string is returned.
+func (s State) GetString(key string) string {
+	vRaw, ok := s[key]
+	if ok {
+		v, ok := vRaw.(string)
+		if ok {
+			return v
+		}
+	}
+
+	return ""
+}
+
+// GetInt return the value to a given key as a int.
+// If the key is not found or isn't a string, zero is returned.
+func (s State) GetInt(key string) int {
+	vRaw, ok := s[key]
+	if ok {
+		v, ok := vRaw.(int)
+		if ok {
+			return v
+		}
+	}
+
+	return 0
+}
+
+// GetBool return the value to a given key as a bool.
+// If the key is not found or isn't a string, false is returned.
+func (s State) GetBool(key string) bool {
+	vRaw, ok := s[key]
+	if ok {
+		v, ok := vRaw.(bool)
+		if ok {
+			return v
+		}
+	}
+
+	return false
 }
 
 // JSON-serializable flow state.

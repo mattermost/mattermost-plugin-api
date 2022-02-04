@@ -22,11 +22,13 @@ const (
 )
 
 type Step struct {
-	name      Name
-	template  *model.SlackAttachment
-	forwardTo Name
-	terminal  bool
-	buttons   []Button
+	name        Name
+	template    *model.SlackAttachment
+	forwardTo   Name
+	autoForward bool
+	terminal    bool
+	onRender    func(f *Flow)
+	buttons     []Button
 }
 
 type Button struct {
@@ -67,8 +69,14 @@ func (s Step) Terminal() Step {
 	return s
 }
 
+func (s Step) OnRender(f func(*Flow)) Step {
+	s.onRender = f
+	return s
+}
+
 func (s Step) Next(name Name) Step {
 	s.forwardTo = name
+	s.autoForward = true
 	return s
 }
 
@@ -76,6 +84,11 @@ func (s Step) WithImage(pluginURL, path string) Step {
 	if path != "" {
 		s.template.ImageURL = pluginURL + "/" + strings.TrimPrefix(path, "/")
 	}
+	return s
+}
+
+func (s Step) WithColor(color Color) Step {
+	s.template.Color = string(color)
 	return s
 }
 
@@ -94,14 +107,15 @@ func (s Step) WithText(text string) Step {
 	return s
 }
 
-func (s Step) Do(f *Flow) (*model.Post, bool, error) {
+func (s Step) do(f *Flow) (*model.Post, bool, error) {
+	if s.onRender != nil {
+		s.onRender(f)
+	}
+
 	return s.render(f, false, 0)
 }
 
-func (s Step) Done(f *Flow, selectedButton int) (*model.Post, error) {
-	if s.forwardTo != "" {
-		return nil, nil
-	}
+func (s Step) done(f *Flow, selectedButton int) (*model.Post, error) {
 	post, _, err := s.render(f, true, selectedButton)
 	return post, err
 }

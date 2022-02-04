@@ -70,10 +70,16 @@ func (f *Flow) handleDialogHTTP(w http.ResponseWriter, r *http.Request) {
 	donePost, fieldErrors, err := f.handleDialog(fromName, selectedButton, request.Submission)
 	if err != nil || len(fieldErrors) != 0 {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(model.SubmitDialogResponse{
-			Error:  err.Error(),
+
+		resp := model.SubmitDialogResponse{
 			Errors: fieldErrors,
-		})
+		}
+
+		if err != nil {
+			resp.Error = err.Error()
+		}
+
+		_ = json.NewEncoder(w).Encode(resp)
 		return
 	}
 	err = f.api.Post.UpdatePost(donePost)
@@ -173,7 +179,7 @@ func (f *Flow) handle(
 		return nil, nil, nil
 	}
 
-	donePost, err := from.Done(f, selectedButton)
+	donePost, err := from.done(f, selectedButton)
 	if err != nil {
 		return nil, nil, err
 	}
