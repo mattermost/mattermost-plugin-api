@@ -91,9 +91,14 @@ func (f *Flow) Start(appState State) error {
 		return errors.New("no steps")
 	}
 
-	err := f.storeState(flowState{
+	if appState == nil {
+		// set some initial state to differentiate an existing flow.
+		appState = State{}
+	}
+	fState := flowState{
 		AppState: appState,
-	})
+	}
+	err := f.storeState(fState)
 	if err != nil {
 		return err
 	}
