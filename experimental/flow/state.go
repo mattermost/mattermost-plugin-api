@@ -60,7 +60,7 @@ func (f *Flow) getState() (flowState, error) {
 		return flowState{}, err
 	}
 	if state.AppState == nil {
-		state.AppState = State{}
+		return flowState{}, errors.New("flow not found")
 	}
 
 	f.State = state.AppState
