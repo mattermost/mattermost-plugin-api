@@ -86,6 +86,15 @@ func (f *Flow) ForUser(userID string) *Flow {
 	return &clone
 }
 
+func (f *Flow) GetCurrentStep() (Name, error) {
+	state, err := f.getState()
+	if err != nil {
+		return "", err
+	}
+
+	return state.StepName, err
+}
+
 func (f *Flow) Start(appState State) error {
 	if len(f.index) == 0 {
 		return errors.New("no steps")
@@ -138,7 +147,7 @@ func (f *Flow) Go(toName Name) error {
 		}
 
 		var donePost *model.Post
-		donePost, err = from.Done(f, 0)
+		donePost, err = from.done(f, 0)
 		if err != nil {
 			return err
 		}
@@ -160,7 +169,7 @@ func (f *Flow) Go(toName Name) error {
 	}
 	f.api.Log.Debug("flow: starting step", "user_id", f.UserID, "flow", f.name, "step", toName, "state", state)
 
-	post, terminal, err := to.Do(f)
+	post, terminal, err := to.do(f)
 	if err != nil {
 		return err
 	}
@@ -182,8 +191,18 @@ func (f *Flow) Go(toName Name) error {
 		return err
 	}
 
-	if to.forwardTo != "" {
-		return f.Go(to.forwardTo)
+	if to.autoForward {
+		var nextName Name
+
+		if to.forwardTo != "" {
+			nextName = to.forwardTo
+		} else {
+			nextName = f.next(toName)
+		}
+
+		if nextName != "" {
+			return f.Go(nextName)
+		}
 	}
 
 	return nil
