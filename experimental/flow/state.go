@@ -3,7 +3,7 @@ package flow
 import (
 	"bytes"
 	"errors"
-	"html/template"
+	"text/template"
 )
 
 // State is the "app"'s state

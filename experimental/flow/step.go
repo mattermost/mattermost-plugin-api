@@ -97,6 +97,14 @@ func (s Step) WithPretext(text string) Step {
 	return s
 }
 
+func (s Step) WithField(title, value string) Step {
+	s.template.Fields = append(s.template.Fields, &model.SlackAttachmentField{
+		Title: title,
+		Value: value,
+	})
+	return s
+}
+
 func (s Step) WithTitle(text string) Step {
 	s.template.Title = text
 	return s
@@ -160,6 +168,15 @@ func processAttachment(attachment *model.SlackAttachment, state State) *model.Sl
 	a.Pretext = formatState(attachment.Pretext, state)
 	a.Title = formatState(attachment.Title, state)
 	a.Text = formatState(attachment.Text, state)
+
+	for _, field := range a.Fields {
+		field.Title = formatState(field.Title, state)
+		v := field.Value.(string)
+		if v != "" {
+			field.Value = formatState(v, state)
+		}
+	}
+
 	a.Fallback = fmt.Sprintf("%s: %s", a.Title, a.Text)
 	return &a
 }
