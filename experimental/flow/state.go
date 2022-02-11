@@ -80,6 +80,12 @@ func (f *Flow) storeState(state flowState) error {
 	if f.UserID == "" {
 		return errors.New("no user specified")
 	}
+
+	// Set AppState to differentiate an existing flow
+	if state.AppState == nil {
+		state.AppState = State{}
+	}
+
 	ok, err := f.api.KV.Set(kvKey(f.UserID, f.name), state)
 	if err != nil {
 		return err
@@ -88,7 +94,7 @@ func (f *Flow) storeState(state flowState) error {
 		return errors.New("value not set without errors")
 	}
 
-	f.State = state.AppState
+	f.state = &state
 	return nil
 }
 
@@ -96,16 +102,19 @@ func (f *Flow) getState() (flowState, error) {
 	if f.UserID == "" {
 		return flowState{}, errors.New("no user specified")
 	}
+	if f.state != nil {
+		return *f.state, nil
+	}
 	state := flowState{}
 	err := f.api.KV.Get(kvKey(f.UserID, f.name), &state)
 	if err != nil {
 		return flowState{}, err
 	}
 	if state.AppState == nil {
-		return flowState{}, errors.New("flow not found")
+		return flowState{}, errors.New("flow state not found")
 	}
 
-	f.State = state.AppState
+	f.state = &state
 	return state, err
 }
 
@@ -113,7 +122,7 @@ func (f *Flow) removeState() error {
 	if f.UserID == "" {
 		return errors.New("no user specified")
 	}
-	f.State = State{}
+	f.state = nil
 	return f.api.KV.Delete(kvKey(f.UserID, f.name))
 }
 

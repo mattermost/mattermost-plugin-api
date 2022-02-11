@@ -129,7 +129,7 @@ func (s Step) done(f *Flow, selectedButton int) (*model.Post, error) {
 }
 
 func (s Step) render(f *Flow, done bool, selectedButton int) (*model.Post, bool, error) {
-	sa := processAttachment(s.template, f.State)
+	sa := processAttachment(s.template, f.state.AppState)
 	post := model.Post{}
 	model.ParseSlackAttachment(&post, []*model.SlackAttachment{sa})
 
@@ -138,7 +138,7 @@ func (s Step) render(f *Flow, done bool, selectedButton int) (*model.Post, bool,
 		return &post, true, nil
 	}
 
-	buttons := processButtons(s.buttons, f.State)
+	buttons := processButtons(s.buttons, f.state.AppState)
 
 	attachments, ok := post.GetProp("attachments").([]*model.SlackAttachment)
 	if !ok || len(attachments) != 1 {
@@ -147,13 +147,13 @@ func (s Step) render(f *Flow, done bool, selectedButton int) (*model.Post, bool,
 	var actions []*model.PostAction
 	if done {
 		if selectedButton > 0 {
-			action := renderButton(buttons[selectedButton-1], s.name, selectedButton, f.State)
+			action := renderButton(buttons[selectedButton-1], s.name, selectedButton, f.state.AppState)
 			action.Disabled = true
 			actions = append(actions, action)
 		}
 	} else {
 		for i, b := range buttons {
-			actions = append(actions, renderButton(b, s.name, i+1, f.State))
+			actions = append(actions, renderButton(b, s.name, i+1, f.state.AppState))
 		}
 	}
 	attachments[0].Actions = actions

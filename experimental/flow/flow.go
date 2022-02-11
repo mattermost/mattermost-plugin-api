@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,7 +24,7 @@ const (
 
 type Flow struct {
 	UserID string
-	State  State
+	state  *flowState
 
 	name      Name
 	api       *pluginapi.Client
@@ -33,6 +34,8 @@ type Flow struct {
 	steps map[Name]Step
 	index []Name
 	done  func(userID string, state State) error
+
+	debugLogState bool
 }
 
 // NewFlow creates a new flow using direct messages with the user.
@@ -76,13 +79,18 @@ func (f *Flow) InitHTTP(r *mux.Router) *Flow {
 	return f
 }
 
+func (f *Flow) WithDebugLog() *Flow {
+	f.debugLogState = true
+	return f
+}
+
 // ForUser creates a new flow using direct messages with the user.
 //
 // name must be a unique identifier for the flow within the plugin.
 func (f *Flow) ForUser(userID string) *Flow {
 	clone := *f
 	clone.UserID = userID
-	clone.State = nil
+	clone.state = nil
 	return &clone
 }
 
@@ -95,19 +103,19 @@ func (f *Flow) GetCurrentStep() (Name, error) {
 	return state.StepName, err
 }
 
+func (f *Flow) GetState() State {
+	state, _ := f.getState()
+	return state.AppState
+}
+
 func (f *Flow) Start(appState State) error {
 	if len(f.index) == 0 {
 		return errors.New("no steps")
 	}
 
-	if appState == nil {
-		// set some initial state to differentiate an existing flow.
-		appState = State{}
-	}
-	fState := flowState{
+	err := f.storeState(flowState{
 		AppState: appState,
-	}
-	err := f.storeState(fState)
+	})
 	if err != nil {
 		return err
 	}
@@ -174,6 +182,11 @@ func (f *Flow) Go(toName Name) error {
 		return err
 	}
 	f.processButtonPostActions(post)
+
+	if f.debugLogState {
+		data, _ := json.MarshalIndent(state, "", "  ")
+		post.Message = fmt.Sprintf("State:\n```\n%s\n```\n", string(data))
+	}
 
 	err = f.api.Post.DM(f.botUserID, f.UserID, post)
 	if err != nil {
