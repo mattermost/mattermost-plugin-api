@@ -129,7 +129,6 @@ func (f *Flow) Finish() error {
 		return err
 	}
 
-	f.api.Log.Debug("flow: done", "user_id", f.UserID, "flow", f.name, "state", state)
 	_ = f.removeState()
 
 	if f.done != nil {
@@ -175,7 +174,6 @@ func (f *Flow) Go(toName Name) error {
 	if !ok {
 		return errors.Errorf("%s: step not found", toName)
 	}
-	f.api.Log.Debug("flow: starting step", "user_id", f.UserID, "flow", f.name, "step", toName, "state", state)
 
 	post, terminal, err := to.do(f)
 	if err != nil {
