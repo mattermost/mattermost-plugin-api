@@ -85,8 +85,6 @@ func (f *Flow) WithDebugLog() *Flow {
 }
 
 // ForUser creates a new flow using direct messages with the user.
-//
-// name must be a unique identifier for the flow within the plugin.
 func (f *Flow) ForUser(userID string) *Flow {
 	clone := *f
 	clone.UserID = userID
