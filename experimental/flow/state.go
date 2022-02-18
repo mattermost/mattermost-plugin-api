@@ -35,7 +35,7 @@ func (s State) GetString(key string) string {
 }
 
 // GetInt return the value to a given key as a int.
-// If the key is not found or isn't a string, zero is returned.
+// If the key is not found or isn't an int, zero is returned.
 func (s State) GetInt(key string) int {
 	vRaw, ok := s[key]
 	if ok {
