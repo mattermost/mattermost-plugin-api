@@ -49,7 +49,7 @@ func (s State) GetInt(key string) int {
 }
 
 // GetBool return the value to a given key as a bool.
-// If the key is not found or isn't a string, false is returned.
+// If the key is not found or isn't a bool, false is returned.
 func (s State) GetBool(key string) bool {
 	vRaw, ok := s[key]
 	if ok {
