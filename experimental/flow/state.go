@@ -6,7 +6,7 @@ import (
 	"text/template"
 )
 
-var stateNotFoundErr = errors.New("flow state not found")
+var errStateNotFound = errors.New("flow state not found")
 
 // State is the "app"'s state
 type State map[string]interface{}
@@ -113,7 +113,7 @@ func (f *Flow) getState() (flowState, error) {
 		return flowState{}, err
 	}
 	if state.AppState == nil {
-		return flowState{}, stateNotFoundErr
+		return flowState{}, errStateNotFound
 	}
 
 	f.state = &state

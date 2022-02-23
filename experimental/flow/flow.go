@@ -96,7 +96,7 @@ func (f *Flow) GetCurrentStep() (Name, error) {
 	state, err := f.getState()
 	if err != nil {
 		// Don't return an error if no flow is running
-		if errors.Is(err, stateNotFoundErr) {
+		if errors.Is(err, errStateNotFound) {
 			return "", nil
 		}
 
