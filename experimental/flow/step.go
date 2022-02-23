@@ -83,7 +83,7 @@ func (s Step) Next(name Name) Step {
 
 func (s Step) WithImage(imageURL string) Step {
 	if u, err := url.Parse(imageURL); err == nil {
-		if u.Host != "" && (u.Scheme == "http" || u.Scheme == "https"){
+		if u.Host != "" && (u.Scheme == "http" || u.Scheme == "https") {
 			s.template.ImageURL = imageURL
 		} else {
 			s.template.ImageURL = u.Path
