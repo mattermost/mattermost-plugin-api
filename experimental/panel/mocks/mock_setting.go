@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	freetextfetcher "github.com/mattermost/mattermost-plugin-api/experimental/freetextfetcher"
 	model "github.com/mattermost/mattermost-server/v6/model"
 )
 
@@ -76,20 +75,6 @@ func (m *MockSetting) GetDescription() string {
 func (mr *MockSettingMockRecorder) GetDescription() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDescription", reflect.TypeOf((*MockSetting)(nil).GetDescription))
-}
-
-// GetFreetextFetcher mocks base method.
-func (m *MockSetting) GetFreetextFetcher() freetextfetcher.FreetextFetcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFreetextFetcher")
-	ret0, _ := ret[0].(freetextfetcher.FreetextFetcher)
-	return ret0
-}
-
-// GetFreetextFetcher indicates an expected call of GetFreetextFetcher.
-func (mr *MockSettingMockRecorder) GetFreetextFetcher() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreetextFetcher", reflect.TypeOf((*MockSetting)(nil).GetFreetextFetcher))
 }
 
 // GetID mocks base method.
