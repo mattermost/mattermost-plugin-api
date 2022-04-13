@@ -102,3 +102,31 @@ func TestRequestTrialLicense(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestGetCloudLimits(t *testing.T) {
+	t.Run("Server version incompatible", func(t *testing.T) {
+		api := &plugintest.API{}
+		defer api.AssertExpectations(t)
+		client := pluginapi.NewClient(api, &plugintest.Driver{})
+
+		api.On("GetServerVersion").Return("6.3.0")
+		err := client.System.GetCloudLimits()
+
+		require.Error(t, err)
+		require.Equal(t, "current server version is lower than 7.0", err.Error())
+	})
+
+	t.Run("Server version compatible", func(t *testing.T) {
+		api := &plugintest.API{}
+		defer api.AssertExpectations(t)
+		client := pluginapi.NewClient(api, &plugintest.Driver{})
+
+		api.On("GetServerVersion").Return("7.0.0")
+		api.On("GetCloudLimits").Return(nil)
+
+		limits, err := client.System.GetCloudLimits()
+
+		require.NoError(t, err)
+		require.Nil(t, limits)
+	})
+}

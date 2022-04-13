@@ -121,3 +121,15 @@ func (s *SystemService) RequestTrialLicense(requesterID string, users int, terms
 	err := s.api.RequestTrialLicense(requesterID, users, termsAccepted, receiveEmailsAccepted)
 	return normalizeAppErr(err)
 }
+
+func (s *SystemService) GetCloudLimits() (*model.ProductLimits, error) {
+	currentVersion := semver.MustParse(s.api.GetServerVersion())
+	requiredVersion := semver.MustParse("7.0.0")
+
+	if currentVersion.LT(requiredVersion) {
+		return nil, errors.Errorf("current server version is lower than 7.0")
+	}
+
+	limits, err := s.api.GetCloudLimits()
+	return limits, normalizeAppErr(err)
+}
