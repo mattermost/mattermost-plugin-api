@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var versionRegexp = regexp.MustCompile(`/v\d$`)
+
 func BuildInfoAutocomplete(cmd string) *model.AutocompleteData {
 	return model.NewAutocompleteData(cmd, "", "Display build info")
 }
@@ -43,11 +45,7 @@ func BuildInfo(manifest model.Manifest, props map[string]any) (string, error) {
 
 	path := info.Main.Path
 
-	reg, err := regexp.Compile(`/v\d$`)
-	if err != nil {
-		return "", err
-	}
-	matches := reg.FindAllString(path, -1)
+	matches := versionRegexp.FindAllString(path, -1)
 	if len(matches) > 0 {
 		path = strings.TrimSuffix(path, matches[len(matches)-1])
 	}
@@ -59,5 +57,12 @@ func BuildInfo(manifest model.Manifest, props map[string]any) (string, error) {
 		propsText += fmt.Sprintf(", %s: %v", k, v)
 	}
 
-	return fmt.Sprintf("%s version: %s, %s, built %s with %s%s\n", manifest.Name, manifest.Version, commit, buildTime.Format(time.RFC1123), info.GoVersion, propsText), nil
+	return fmt.Sprintf("%s version: %s, %s, built %s with %s%s\n",
+			manifest.Name,
+			manifest.Version,
+			commit,
+			buildTime.Format(time.RFC1123),
+			info.GoVersion,
+			propsText),
+		nil
 }
