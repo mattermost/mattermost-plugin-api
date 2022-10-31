@@ -17,7 +17,7 @@ func BuildInfoAutocomplete(cmd string) *model.AutocompleteData {
 	return model.NewAutocompleteData(cmd, "", "Display build info")
 }
 
-func BuildInfo(manifest model.Manifest, props map[string]any) (string, error) {
+func BuildInfo(manifest model.Manifest) (string, error) {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return "", errors.New("failed to read build info")
@@ -52,17 +52,11 @@ func BuildInfo(manifest model.Manifest, props map[string]any) (string, error) {
 
 	commit := fmt.Sprintf("[%s](https://%s/commit/%s)", revisionShort, path, revision)
 
-	var propsText string
-	for k, v := range props {
-		propsText += fmt.Sprintf(", %s: %v", k, v)
-	}
-
-	return fmt.Sprintf("%s version: %s, %s, built %s with %s%s\n",
+	return fmt.Sprintf("%s version: %s, %s, built %s with %s\n",
 			manifest.Name,
 			manifest.Version,
 			commit,
 			buildTime.Format(time.RFC1123),
-			info.GoVersion,
-			propsText),
+			info.GoVersion),
 		nil
 }
