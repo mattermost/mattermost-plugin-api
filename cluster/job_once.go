@@ -34,6 +34,7 @@ const (
 type JobOnceMetadata struct {
 	Key   string
 	RunAt time.Time
+	Props any
 }
 
 type JobOnce struct {
@@ -42,6 +43,7 @@ type JobOnce struct {
 
 	// key is the original key. It is prefixed with oncePrefix when used as a key in the KVStore
 	key      string
+	props    any
 	runAt    time.Time
 	numFails int
 
@@ -72,7 +74,7 @@ func (j *JobOnce) Cancel() {
 	})
 }
 
-func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time, callback *syncedCallback, jobs *syncedJobs) (*JobOnce, error) {
+func newJobOnce(pluginAPI JobPluginAPI, key string, props any, runAt time.Time, callback *syncedCallback, jobs *syncedJobs) (*JobOnce, error) {
 	mutex, err := NewMutex(pluginAPI, key)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create job mutex")
@@ -82,6 +84,7 @@ func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time, callback *s
 		pluginAPI:      pluginAPI,
 		clusterMutex:   mutex,
 		key:            key,
+		props:          props,
 		runAt:          runAt,
 		done:           make(chan bool),
 		join:           make(chan bool),
@@ -138,7 +141,7 @@ func (j *JobOnce) executeJob() {
 	j.storedCallback.mu.Lock()
 	defer j.storedCallback.mu.Unlock()
 
-	j.storedCallback.callback(j.key)
+	j.storedCallback.callback(j.key, j.props)
 }
 
 // readMetadata reads the job's stored metadata. If the caller wishes to make an atomic
@@ -169,6 +172,7 @@ func (j *JobOnce) saveMetadata() error {
 
 	metadata := JobOnceMetadata{
 		Key:   j.key,
+		Props: j.props,
 		RunAt: j.runAt,
 	}
 	data, err := json.Marshal(metadata)

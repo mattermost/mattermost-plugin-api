@@ -32,7 +32,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		manyJobs[makeKey()] = new(int32)
 	}
 
-	callback := func(key string) {
+	callback := func(key string, _ any) {
 		switch key {
 		case jobKey1:
 			atomic.AddInt32(count1, 1)
@@ -77,7 +77,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 	t.Run("one scheduled job", func(t *testing.T) {
 		t.Parallel()
 
-		job, err2 := s.ScheduleOnce(jobKey1, time.Now().Add(100*time.Millisecond))
+		job, err2 := s.ScheduleOnce(jobKey1, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err2)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey1))
@@ -102,7 +102,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 	t.Run("one job, stopped before firing", func(t *testing.T) {
 		t.Parallel()
 
-		job, err2 := s.ScheduleOnce(jobKey2, time.Now().Add(100*time.Millisecond))
+		job, err2 := s.ScheduleOnce(jobKey2, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err2)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey2))
@@ -128,7 +128,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 	t.Run("failed at the plugin, job removed from db", func(t *testing.T) {
 		t.Parallel()
 
-		job, err2 := s.ScheduleOnce(jobKey3, time.Now().Add(100*time.Millisecond))
+		job, err2 := s.ScheduleOnce(jobKey3, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err2)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey3))
@@ -143,7 +143,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 	t.Run("cancel and restart a job with the same key", func(t *testing.T) {
 		t.Parallel()
 
-		job, err2 := s.ScheduleOnce(jobKey4, time.Now().Add(100*time.Millisecond))
+		job, err2 := s.ScheduleOnce(jobKey4, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err2)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey4))
@@ -154,7 +154,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		assert.Empty(t, s.activeJobs.jobs[jobKey4])
 		s.activeJobs.mu.RUnlock()
 
-		job, err2 = s.ScheduleOnce(jobKey4, time.Now().Add(100*time.Millisecond))
+		job, err2 = s.ScheduleOnce(jobKey4, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err2)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey4))
@@ -171,7 +171,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 		t.Parallel()
 
 		for k := range manyJobs {
-			job, err2 := s.ScheduleOnce(k, time.Now().Add(100*time.Millisecond))
+			job, err2 := s.ScheduleOnce(k, nil, time.Now().Add(100*time.Millisecond))
 			require.NoError(t, err2)
 			require.NotNil(t, job)
 			assert.NotEmpty(t, getVal(oncePrefix+k))
@@ -191,7 +191,7 @@ func TestScheduleOnceParallel(t *testing.T) {
 	t.Run("cancel a job by key name", func(t *testing.T) {
 		t.Parallel()
 
-		job, err2 := s.ScheduleOnce(jobKey5, time.Now().Add(100*time.Millisecond))
+		job, err2 := s.ScheduleOnce(jobKey5, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err2)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey5))
@@ -269,11 +269,11 @@ func TestScheduleOnceSequential(t *testing.T) {
 	t.Run("trying to schedule a job without starting will return an error", func(t *testing.T) {
 		resetScheduler()
 
-		callback := func(key string) {}
+		callback := func(key string, _ any) {}
 		err := s.SetCallback(callback)
 		require.NoError(t, err)
 
-		_, err = s.ScheduleOnce("will fail", time.Now())
+		_, err = s.ScheduleOnce("will fail", nil, time.Now())
 		require.Error(t, err)
 	})
 
@@ -283,10 +283,10 @@ func TestScheduleOnceSequential(t *testing.T) {
 		newCount2 := new(int32)
 		newCount3 := new(int32)
 
-		callback2 := func(key string) {
+		callback2 := func(key string, _ any) {
 			atomic.AddInt32(newCount2, 1)
 		}
-		callback3 := func(key string) {
+		callback3 := func(key string, _ any) {
 			atomic.AddInt32(newCount3, 1)
 		}
 
@@ -297,7 +297,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		err = s.Start()
 		require.NoError(t, err)
 
-		_, err = s.ScheduleOnce("anything", time.Now().Add(50*time.Millisecond))
+		_, err = s.ScheduleOnce("anything", nil, time.Now().Add(50*time.Millisecond))
 		require.NoError(t, err)
 		time.Sleep(70*time.Millisecond + scheduleOnceJitter)
 		assert.Equal(t, int32(0), atomic.LoadInt32(newCount2))
@@ -313,7 +313,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			testPagingJobs[makeKey()] = new(int32)
 		}
 
-		callback := func(key string) {
+		callback := func(key string, _ any) {
 			count, ok := testPagingJobs[key]
 			if ok {
 				atomic.AddInt32(count, 1)
@@ -324,7 +324,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		// add the test paging jobs before starting scheduler
 		for k := range testPagingJobs {
 			assert.Empty(t, getVal(oncePrefix+k))
-			job, err := newJobOnce(s.pluginAPI, k, time.Now().Add(100*time.Millisecond), s.storedCallback, s.activeJobs)
+			job, err := newJobOnce(s.pluginAPI, k, nil, time.Now().Add(100*time.Millisecond), s.storedCallback, s.activeJobs)
 			require.NoError(t, err)
 			err = job.saveMetadata()
 			require.NoError(t, err)
@@ -373,7 +373,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		jobKey1 := makeKey()
 		count1 := new(int32)
 
-		callback := func(key string) {
+		callback := func(key string, _ any) {
 			if key == jobKey1 {
 				atomic.AddInt32(count1, 1)
 			}
@@ -388,7 +388,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, jobs)
 
-		job, err := s.ScheduleOnce(jobKey1, time.Now().Add(100*time.Millisecond))
+		job, err := s.ScheduleOnce(jobKey1, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey1))
@@ -415,7 +415,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 			jobKeys[makeKey()] = new(int32)
 		}
 
-		callback := func(key string) {
+		callback := func(key string, _ any) {
 			count, ok := jobKeys[key]
 			if ok {
 				atomic.AddInt32(count, 1)
@@ -427,7 +427,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NoError(t, err)
 
 		for k := range jobKeys {
-			job, err3 := newJobOnce(s.pluginAPI, k, time.Now().Add(100*time.Millisecond), s.storedCallback, s.activeJobs)
+			job, err3 := newJobOnce(s.pluginAPI, k, nil, time.Now().Add(100*time.Millisecond), s.storedCallback, s.activeJobs)
 			require.NoError(t, err3)
 			err3 = job.saveMetadata()
 			require.NoError(t, err3)
@@ -462,7 +462,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		jobKey := makeKey()
 		count := new(int32)
 
-		callback := func(key string) {
+		callback := func(key string, _ any) {
 			if key == jobKey {
 				atomic.AddInt32(count, 1)
 			}
@@ -477,7 +477,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, jobs)
 
-		job, err := s.ScheduleOnce(jobKey, time.Now().Add(100*time.Millisecond))
+		job, err := s.ScheduleOnce(jobKey, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey))
@@ -514,7 +514,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		jobKey := makeKey()
 		count := new(int32)
 
-		callback := func(key string) {
+		callback := func(key string, _ any) {
 			if key == jobKey {
 				atomic.AddInt32(count, 1)
 			}
@@ -529,7 +529,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, jobs)
 
-		job, err := s.ScheduleOnce(jobKey, time.Now().Add(100*time.Millisecond))
+		job, err := s.ScheduleOnce(jobKey, nil, time.Now().Add(100*time.Millisecond))
 		require.NoError(t, err)
 		require.NotNil(t, job)
 		assert.NotEmpty(t, getVal(oncePrefix+jobKey))
@@ -537,7 +537,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		assert.Len(t, s.activeJobs.jobs, 1)
 
 		// a plugin tries to start the same jobKey again:
-		job, err = s.ScheduleOnce(jobKey, time.Now().Add(10000*time.Millisecond))
+		job, err = s.ScheduleOnce(jobKey, nil, time.Now().Add(10000*time.Millisecond))
 		require.Error(t, err)
 		require.Nil(t, job)
 
@@ -560,7 +560,7 @@ func TestScheduleOnceSequential(t *testing.T) {
 		control := makeKey()
 		jobKeys[control] = new(int32)
 
-		callback := func(key string) {
+		callback := func(key string, _ any) {
 			count, ok := jobKeys[key]
 			if ok {
 				atomic.AddInt32(count, 1)
@@ -575,14 +575,14 @@ func TestScheduleOnceSequential(t *testing.T) {
 		newRunAt := time.Now().Add(101 * time.Millisecond)
 
 		// store original
-		job, err := newJobOnce(s.pluginAPI, key, originalRunAt, s.storedCallback, s.activeJobs)
+		job, err := newJobOnce(s.pluginAPI, key, nil, originalRunAt, s.storedCallback, s.activeJobs)
 		require.NoError(t, err)
 		err = job.saveMetadata()
 		require.NoError(t, err)
 		assert.NotEmpty(t, getVal(oncePrefix+key))
 
 		// store oringal control
-		job2, err := newJobOnce(s.pluginAPI, control, originalRunAt, s.storedCallback, s.activeJobs)
+		job2, err := newJobOnce(s.pluginAPI, control, nil, originalRunAt, s.storedCallback, s.activeJobs)
 		require.NoError(t, err)
 		err = job2.saveMetadata()
 		require.NoError(t, err)
@@ -633,4 +633,35 @@ func TestScheduleOnceSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, jobs)
 	})
+}
+
+func TestScheduleOnceProps(t *testing.T) {
+	s := GetJobOnceScheduler(newMockPluginAPI(t))
+
+	jobKey := model.NewId()
+	jobProps := struct {
+		Foo string
+	}{
+		Foo: "some foo",
+	}
+
+	var called bool
+	callback := func(key string, props any) {
+		require.Equal(t, jobKey, key)
+		require.Equal(t, jobProps, props)
+		called = true
+	}
+
+	err := s.SetCallback(callback)
+	require.NoError(t, err)
+	if !s.started {
+		err = s.Start()
+		require.NoError(t, err)
+	}
+
+	_, err = s.ScheduleOnce(jobKey, jobProps, time.Now().Add(100*time.Millisecond))
+	require.NoError(t, err)
+
+	// Check if callback was called
+	require.Eventually(t, func() bool { return called }, time.Second, 50*time.Millisecond)
 }
