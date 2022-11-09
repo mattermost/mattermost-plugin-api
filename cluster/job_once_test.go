@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"encoding/json"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -645,10 +646,13 @@ func TestScheduleOnceProps(t *testing.T) {
 		Foo: "some foo",
 	}
 
+	var mut sync.Mutex
 	var called bool
 	callback := func(key string, props any) {
 		require.Equal(t, jobKey, key)
 		require.Equal(t, jobProps, props)
+		mut.Lock()
+		defer mut.Unlock()
 		called = true
 	}
 
@@ -663,5 +667,5 @@ func TestScheduleOnceProps(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check if callback was called
-	require.Eventually(t, func() bool { return called }, time.Second, 50*time.Millisecond)
+	require.Eventually(t, func() bool { mut.Lock(); defer mut.Unlock(); return called }, time.Second, 50*time.Millisecond)
 }
