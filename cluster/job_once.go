@@ -74,7 +74,7 @@ func (j *JobOnce) Cancel() {
 	})
 }
 
-func newJobOnce(pluginAPI JobPluginAPI, key string, props any, runAt time.Time, callback *syncedCallback, jobs *syncedJobs) (*JobOnce, error) {
+func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time, callback *syncedCallback, jobs *syncedJobs, props any) (*JobOnce, error) {
 	mutex, err := NewMutex(pluginAPI, key)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create job mutex")

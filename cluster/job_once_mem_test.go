@@ -57,7 +57,7 @@ func TestMemFootprint(t *testing.T) {
 
 		for k := range jobs {
 			assert.Empty(t, getVal(oncePrefix+k))
-			_, err = s.ScheduleOnce(k, nil, time.Now().Add(5*time.Minute))
+			_, err = s.ScheduleOnce(k, time.Now().Add(5*time.Minute), nil)
 			require.NoError(t, err)
 			assert.NotEmpty(t, getVal(oncePrefix+k))
 		}

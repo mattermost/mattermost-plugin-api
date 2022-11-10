@@ -128,14 +128,14 @@ func (s *JobOnceScheduler) ListScheduledJobs() ([]JobOnceMetadata, error) {
 //
 // If the job key already exists in the db, this will return an error. To reschedule a job, first
 // cancel the original then schedule it again.
-func (s *JobOnceScheduler) ScheduleOnce(key string, props any, runAt time.Time) (*JobOnce, error) {
+func (s *JobOnceScheduler) ScheduleOnce(key string, runAt time.Time, props any) (*JobOnce, error) {
 	s.startedMu.RLock()
 	defer s.startedMu.RUnlock()
 	if !s.started {
 		return nil, errors.New("start the scheduler before adding jobs")
 	}
 
-	job, err := newJobOnce(s.pluginAPI, key, props, runAt, s.storedCallback, s.activeJobs)
+	job, err := newJobOnce(s.pluginAPI, key, runAt, s.storedCallback, s.activeJobs, props)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create new job")
 	}
@@ -188,7 +188,7 @@ func (s *JobOnceScheduler) scheduleNewJobsFromDB() error {
 	}
 
 	for _, m := range scheduled {
-		job, err := newJobOnce(s.pluginAPI, m.Key, m.Props, m.RunAt, s.storedCallback, s.activeJobs)
+		job, err := newJobOnce(s.pluginAPI, m.Key, m.RunAt, s.storedCallback, s.activeJobs, m.Props)
 		if err != nil {
 			s.pluginAPI.LogError(errors.Wrap(err, "could not create new job for key: "+m.Key).Error())
 			continue
