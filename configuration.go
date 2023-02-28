@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 
+	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-server/v6/channels/utils"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
-	"github.com/mattermost/mattermost-server/v6/utils"
-	"github.com/pkg/errors"
 )
 
 // ConfigurationService exposes methods to manipulate the server and plugin configuration.
