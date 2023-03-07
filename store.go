@@ -10,8 +10,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/mattermost/mattermost-server/server/v8/platform/shared/driver"
-	"github.com/mattermost/mattermost-server/server/v8/plugin"
+	"github.com/mattermost/mattermost-server/server/v7/platform/shared/driver"
+	"github.com/mattermost/mattermost-server/server/v7/plugin"
 )
 
 // StoreService exposes the underlying database.

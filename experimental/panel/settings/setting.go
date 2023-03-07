@@ -1,7 +1,7 @@
 package settings
 
 import (
-	"github.com/mattermost/mattermost-server/server/v8/model"
+	"github.com/mattermost/mattermost-server/server/v7/model"
 )
 
 const (

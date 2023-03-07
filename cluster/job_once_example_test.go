@@ -3,7 +3,7 @@ package cluster
 import (
 	"time"
 
-	"github.com/mattermost/mattermost-server/server/v8/plugin"
+	"github.com/mattermost/mattermost-server/server/v7/plugin"
 )
 
 func HandleJobOnceCalls(key string) {

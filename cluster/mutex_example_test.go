@@ -3,7 +3,7 @@ package cluster_test
 import (
 	"github.com/mattermost/mattermost-plugin-api/cluster"
 
-	"github.com/mattermost/mattermost-server/server/v8/plugin"
+	"github.com/mattermost/mattermost-server/server/v7/plugin"
 )
 
 func ExampleMutex() {

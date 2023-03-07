@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/mattermost/mattermost-server/server/v8/model"
-	"github.com/mattermost/mattermost-server/server/v8/plugin"
+	"github.com/mattermost/mattermost-server/server/v7/model"
+	"github.com/mattermost/mattermost-server/server/v7/plugin"
 )
 
 // UserService exposes methods to manipulate users.

@@ -3,7 +3,7 @@ package pluginapi_test
 import (
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 
-	"github.com/mattermost/mattermost-server/server/v8/plugin"
+	"github.com/mattermost/mattermost-server/server/v7/plugin"
 )
 
 type Plugin struct {

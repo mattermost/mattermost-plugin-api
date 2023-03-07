@@ -3,7 +3,7 @@ package settings
 import (
 	"fmt"
 
-	"github.com/mattermost/mattermost-server/server/v8/model"
+	"github.com/mattermost/mattermost-server/server/v7/model"
 )
 
 type emptySetting struct {
