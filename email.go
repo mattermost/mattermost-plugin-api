@@ -1,7 +1,7 @@
 package pluginapi
 
 import (
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost-server/server/v8/plugin"
 )
 
 // MailService exposes methods to send email.

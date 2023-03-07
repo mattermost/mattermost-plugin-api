@@ -5,8 +5,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
+	"github.com/mattermost/mattermost-server/server/v8/model"
+	"github.com/mattermost/mattermost-server/server/v8/plugin/plugintest"
 	"github.com/stretchr/testify/require"
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
