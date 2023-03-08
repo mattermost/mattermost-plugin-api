@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mattermost/mattermost-server/server/v7/model"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-server/v6/model"
 )
 
 var versionRegexp = regexp.MustCompile(`/v\d$`)

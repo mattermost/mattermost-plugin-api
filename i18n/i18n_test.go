@@ -5,13 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mattermost/mattermost-server/server/v7/model"
-	"github.com/mattermost/mattermost-server/server/v7/plugin"
-	"github.com/mattermost/mattermost-server/server/v7/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/language"
+
+	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 
 	"github.com/mattermost/mattermost-plugin-api/i18n"
 )

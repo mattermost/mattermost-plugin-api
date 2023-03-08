@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/mattermost/mattermost-server/server/v7/model"
-	"github.com/mattermost/mattermost-server/server/v7/plugin"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-server/v6/plugin"
+
+	"github.com/mattermost/mattermost-server/v6/model"
 )
 
 // SystemService exposes methods to query system properties.

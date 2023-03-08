@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/mattermost/mattermost-server/server/v7/model"
-	"github.com/mattermost/mattermost-server/server/v7/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
+
+	"github.com/mattermost/mattermost-server/v6/model"
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster/mock_import"

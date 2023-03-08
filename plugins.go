@@ -6,9 +6,11 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/mattermost/mattermost-server/server/v7/model"
-	"github.com/mattermost/mattermost-server/server/v7/plugin"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-server/v6/plugin"
+
+	"github.com/mattermost/mattermost-server/v6/model"
 )
 
 // PluginService exposes methods to manipulate the set of plugins as well as communicate with

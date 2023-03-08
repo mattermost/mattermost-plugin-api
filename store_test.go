@@ -5,8 +5,9 @@ import (
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 
-	"github.com/mattermost/mattermost-server/server/v7/model"
-	"github.com/mattermost/mattermost-server/server/v7/plugin/plugintest"
+	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
+
+	"github.com/mattermost/mattermost-server/v6/model"
 
 	"github.com/stretchr/testify/require"
 )

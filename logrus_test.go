@@ -3,10 +3,11 @@ package pluginapi_test
 import (
 	"testing"
 
-	"github.com/mattermost/mattermost-server/server/v7/plugin/plugintest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 )

@@ -4,8 +4,9 @@
 package bot
 
 import (
-	"github.com/mattermost/mattermost-server/server/v7/model"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-server/v6/model"
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 )

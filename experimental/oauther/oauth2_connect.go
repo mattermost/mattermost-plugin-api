@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/mattermost/mattermost-server/server/v7/model"
 	"golang.org/x/oauth2"
+
+	"github.com/mattermost/mattermost-server/v6/model"
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 )
