@@ -1,8 +1,9 @@
 package telemetry
 
 import (
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 )
 
 // Tracker defines a telemetry tracker
@@ -93,7 +94,6 @@ func (t *tracker) debugf(message string, args ...interface{}) {
 		return
 	}
 	t.logger.Debugf(message, args...)
-
 }
 
 func (t *tracker) TrackEvent(event string, properties map[string]interface{}) error {
