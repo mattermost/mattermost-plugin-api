@@ -35,13 +35,18 @@
 //     if err != nil {
 //     p.API.LogWarn("telemetry client not started", "error", err.Error())
 //     }
+//     ...
+//     p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id,
+//     manifest.Version, "pluginName", enableDiagnostics, logger)
 //     }
 //  3. Init and update the tracker on configuration change
 //     func (p *Plugin) OnConfigurationChange() error {
 //     ...
-//     p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id,
-//     manifest.Version, "pluginName", enableDiagnostics, logger)
-//     return nil
+//     if enableDiagnostics && p.tracker != nil {
+//     p.tracker.Enable()
+//     } else if !enableDiagnostics && p.tracker != nil {
+//     p.tracker.Disable()
+//     }
 //     }
 //  4. Close the client on plugin deactivate
 //     func (p *Plugin) OnDeactivate() error {
