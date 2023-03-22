@@ -119,7 +119,7 @@ func (t *tracker) TrackEvent(event string, properties map[string]interface{}) er
 	if err != nil {
 		return errors.Wrap(err, "cannot enqueue the track")
 	}
-	t.debugf("Plugin telemetry event `%s` triggered", event)
+	t.debugf("Tracked plugin telemetry event `%s`", event)
 
 	return nil
 }
