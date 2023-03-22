@@ -78,7 +78,7 @@ type tracker struct {
 // - telemetryShortName: Short name for the plugin to use in telemetry. Used to avoid dot separated names like `com.company.pluginName`.
 // If a empty string is provided, it will use the pluginID.
 // - config: Whether the system has enabled sending telemetry data. If false, the tracker will not track any event.
-// - l Logger: A logger to debug event tracking and some important changes (it wont log if nil is passed as logger).
+// - l Logger: A logger to debug event tracking and some important changes (it won't log if nil is passed as logger).
 func NewTracker(
 	c Client,
 	diagnosticID,
