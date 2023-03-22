@@ -20,13 +20,13 @@ func NewTrackerConfig(api plugin.API) TrackerConfig {
 		if enableDiagnostics := config.LogSettings.EnableDiagnostics; enableDiagnostics != nil {
 			enabledTracking = *enableDiagnostics
 		}
-        
+
 		if enableDeveloper := config.ServiceSettings.EnableDeveloper; enableDeveloper != nil {
 			enabledLogging = *enableDeveloper
 		}
-    }
+	}
 
-    return TrackerConfig{
+	return TrackerConfig{
 		EnabledTracking: enabledTracking,
 		EnabledLogging:  enabledLogging,
 	}
@@ -112,8 +112,9 @@ func (t *tracker) ReloadConfig(config TrackerConfig) {
 		} else {
 			t.debugf("Disabling plugin telemetry")
 		}
-		t.enabledTracking = config.EnabledTracking
 	}
+
+	t.enabledTracking = config.EnabledTracking
 	t.enabledLogging = config.EnabledLogging
 }
 
