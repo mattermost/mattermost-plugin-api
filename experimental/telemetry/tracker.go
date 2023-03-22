@@ -17,14 +17,16 @@ type TrackerConfig struct {
 func NewTrackerConfig(api plugin.API) TrackerConfig {
 	var enabledTracking, enabledLogging bool
 	if config := api.GetConfig(); config != nil {
-		if configValue := config.LogSettings.EnableDiagnostics; configValue != nil {
-			enabledTracking = *configValue
+		if enableDiagnostics := config.LogSettings.EnableDiagnostics; enableDiagnostics != nil {
+			enabledTracking = *enableDiagnostics
 		}
-		if configValue := config.ServiceSettings.EnableDeveloper; configValue != nil {
-			enabledLogging = *configValue
+        
+		if enableDeveloper := config.ServiceSettings.EnableDeveloper; enableDeveloper != nil {
+			enabledLogging = *enableDeveloper
 		}
-	}
-	return TrackerConfig{
+    }
+
+    return TrackerConfig{
 		EnabledTracking: enabledTracking,
 		EnabledLogging:  enabledLogging,
 	}
