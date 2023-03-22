@@ -99,7 +99,7 @@ func (t *tracker) debugf(message string, args ...interface{}) {
 func (t *tracker) TrackEvent(event string, properties map[string]interface{}) error {
 	event = t.telemetryShortName + "_" + event
 	if !t.enabled || t.client == nil {
-		t.debugf("Plugin telemetry event `%s` triggered, but not sent due to configuration", event)
+		t.debugf("Plugin telemetry event `%s` tracked, but not sent due to configuration", event)
 		return nil
 	}
 
