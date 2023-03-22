@@ -3,8 +3,32 @@ package telemetry
 import (
 	"github.com/pkg/errors"
 
+	"github.com/mattermost/mattermost-server/v6/plugin"
+
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 )
+
+type TrackerConfig struct {
+	EnabledTracking bool
+	EnabledLogging  bool
+}
+
+// NewTrackerConfig returns a new trackerConfig from the current values from the plugin API.
+func NewTrackerConfig(api plugin.API) TrackerConfig {
+	var enabledTracking, enabledLogging bool
+	if config := api.GetConfig(); config != nil {
+		if configValue := config.LogSettings.EnableDiagnostics; configValue != nil {
+			enabledTracking = *configValue
+		}
+		if configValue := config.ServiceSettings.EnableDeveloper; configValue != nil {
+			enabledLogging = *configValue
+		}
+	}
+	return TrackerConfig{
+		EnabledTracking: enabledTracking,
+		EnabledLogging:  enabledLogging,
+	}
+}
 
 // Tracker defines a telemetry tracker
 type Tracker interface {
@@ -12,10 +36,8 @@ type Tracker interface {
 	TrackEvent(event string, properties map[string]interface{}) error
 	// TrackUserEvent registers an event through the configured telemetry client associated to a user
 	TrackUserEvent(event string, userID string, properties map[string]interface{}) error
-	// Enable allow the events to be sent to the telemetry client
-	Enable()
-	// Disable stops the events flow, discarding any event left on the queue
-	Disable()
+	// Reload Config re-evaluates tracker config to determine if tracking behavior should change
+	ReloadConfig(config TrackerConfig)
 }
 
 // Client defines a telemetry client
@@ -40,7 +62,8 @@ type tracker struct {
 	pluginID           string
 	pluginVersion      string
 	telemetryShortName string
-	enabled            bool
+	enabledTracking    bool
+	enabledLogging     bool
 	logger             logger.Logger
 }
 
@@ -52,7 +75,7 @@ type tracker struct {
 // - pluginVersion: The plugin version.
 // - telemetryShortName: Short name for the plugin to use in telemetry. Used to avoid dot separated names like `com.company.pluginName`.
 // If a empty string is provided, it will use the pluginID.
-// - enableDiagnostics: Whether the system has enabled sending telemetry data. If false, the tracker will not track any event.
+// - config: Whether the system has enabled sending telemetry data. If false, the tracker will not track any event.
 // - l Logger: A logger to debug event tracking and some important changes (it wont log if nil is passed as logger).
 func NewTracker(
 	c Client,
@@ -61,7 +84,7 @@ func NewTracker(
 	pluginID,
 	pluginVersion,
 	telemetryShortName string,
-	enableDiagnostics bool,
+	config TrackerConfig,
 	l logger.Logger,
 ) Tracker {
 	if telemetryShortName == "" {
@@ -74,23 +97,26 @@ func NewTracker(
 		serverVersion:      serverVersion,
 		pluginID:           pluginID,
 		pluginVersion:      pluginVersion,
-		enabled:            enableDiagnostics,
+		enabledLogging:     config.EnabledLogging,
+		enabledTracking:    config.EnabledTracking,
 		logger:             l,
 	}
 }
 
-func (t *tracker) Enable() {
-	t.debugf("Enabling plugin telemetry")
-	t.enabled = true
-}
-
-func (t *tracker) Disable() {
-	t.debugf("Disabling plugin telemetry")
-	t.enabled = false
+func (t *tracker) ReloadConfig(config TrackerConfig) {
+	if config.EnabledTracking != t.enabledTracking {
+		if config.EnabledTracking {
+			t.debugf("Enabling plugin telemetry")
+		} else {
+			t.debugf("Disabling plugin telemetry")
+		}
+		t.enabledTracking = config.EnabledTracking
+	}
+	t.enabledLogging = config.EnabledLogging
 }
 
 func (t *tracker) debugf(message string, args ...interface{}) {
-	if t.logger == nil {
+	if t.logger == nil || !t.enabledLogging {
 		return
 	}
 	t.logger.Debugf(message, args...)
@@ -98,7 +124,7 @@ func (t *tracker) debugf(message string, args ...interface{}) {
 
 func (t *tracker) TrackEvent(event string, properties map[string]interface{}) error {
 	event = t.telemetryShortName + "_" + event
-	if !t.enabled || t.client == nil {
+	if !t.enabledTracking || t.client == nil {
 		t.debugf("Plugin telemetry event `%s` tracked, but not sent due to configuration", event)
 		return nil
 	}
