@@ -22,50 +22,55 @@
 //	LDFLAGS += -X "github.com/mattermost/mattermost-plugin-api/experimental/telemetry.rudderDataPlaneURL=$(MM_RUDDER_DATA_PLANE_URL)"
 //
 // In order to use telemetry you should:
-//  1. Add the new fields to the plugin
-//     type Plugin struct {
-//     plugin.MattermostPlugin
-//     ...
-//     telemetryClient telemetry.Client
-//     tracker         telemetry.Tracker
-//     }
-//  2. Start the telemetry client on plugin activate
-//     func (p *Plugin) OnActivate() error {
-//     p.telemetryClient, err = telemetry.NewRudderClient()
-//     if err != nil {
-//     p.API.LogWarn("telemetry client not started", "error", err.Error())
-//     }
-//     ...
-//     p.tracker = telemetry.NewTracker(
-//     p.telemetryClient,
-//     p.API.GetDiagnosticId(),
-//     p.API.GetServerVersion(),
-//     Manifest.Id,
-//     Manifest.Version,
-//     "github",
-//     telemetry.NewTrackerConfig(p.API),
-//     logger.New(p.API)
 //
-// )
+// 1. Add the new fields to the plugin
 //
-//	   p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id,
-//	   manifest.Version, "pluginName", telemetry.TrackerConfig{EnabledTracking: enabledTracking, EnabledLogging: enabledDeveloper}, logger)
-//	   }
-//	3. Init and update the tracker on configuration change
-//	   func (p *Plugin) OnConfigurationChange() error {
+//	type Plugin struct {
+//	    plugin.MattermostPlugin
+//	    ...
+//	    telemetryClient telemetry.Client
+//	    tracker         telemetry.Tracker
+//	}
+//
+// 2. Start the telemetry client and tracker on plugin activate
+//
+//		func (p *Plugin) OnActivate() error {
+//		    p.telemetryClient, err = telemetry.NewRudderClient()
+//		    if err != nil {
+//		        p.API.LogWarn("telemetry client not started", "error", err.Error())
+//		    }
+//	        ...
+//	        p.tracker = telemetry.NewTracker(
+//	           p.telemetryClient,
+//	           p.API.GetDiagnosticId(),
+//	           p.API.GetServerVersion(),
+//	           Manifest.Id,
+//	           Manifest.Version,
+//	           "plugin_short_namame",
+//	           telemetry.NewTrackerConfig(p.API.GetConfig()),
+//	           logger.New(p.API)
+//	        )
+//		}
+//
+// 3. Trigger tracker changes when configuration changes
+//
+//	func (p *Plugin) OnConfigurationChange() error {
 //	   ...
 //	   if p.tracker != nil {
-//		p.tracker.ReloadConfig(telemetry.NewTrackerConfig(p.API))
-//	   }
-//	   }
-//	4. Close the client on plugin deactivate
-//	   func (p *Plugin) OnDeactivate() error {
-//	   if p.telemetryClient != nil {
-//	   err := p.telemetryClient.Close()
-//	   if err != nil {
-//	   p.API.LogWarn("OnDeactivate: failed to close telemetryClient", "error", err.Error())
-//	   }
+//	     p.tracker.ReloadConfig(telemetry.NewTrackerConfig(p.API.GetConfig()))
 //	   }
 //	   return nil
+//	}
+//
+// 4. Close the client on plugin deactivate
+//
+//	func (p *Plugin) OnDeactivate() error {
+//	   if p.telemetryClient != nil {
+//	      err := p.telemetryClient.Close()
+//	      if err != nil {
+//	         p.API.LogWarn("OnDeactivate: failed to close telemetryClient", "error", err.Error())
+//	      }
 //	   }
+//	   return nil
+//	}
 package telemetry
