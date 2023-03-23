@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"os"
+	"sync"
 
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
@@ -68,6 +69,7 @@ type tracker struct {
 	pluginID           string
 	pluginVersion      string
 	telemetryShortName string
+	configLock         sync.RWMutex
 	config             TrackerConfig
 	logger             logger.Logger
 }
@@ -108,6 +110,9 @@ func NewTracker(
 }
 
 func (t *tracker) ReloadConfig(config TrackerConfig) {
+	t.configLock.Lock()
+	defer t.configLock.Unlock()
+
 	if config.EnabledTracking != t.config.EnabledTracking {
 		if config.EnabledTracking {
 			t.debugf("Enabling plugin telemetry")
@@ -120,6 +125,7 @@ func (t *tracker) ReloadConfig(config TrackerConfig) {
 	t.config.EnabledLogging = config.EnabledLogging
 }
 
+// Note that config lock is handled by the caller.
 func (t *tracker) debugf(message string, args ...interface{}) {
 	if t.logger == nil || !t.config.EnabledLogging {
 		return
@@ -128,6 +134,9 @@ func (t *tracker) debugf(message string, args ...interface{}) {
 }
 
 func (t *tracker) TrackEvent(event string, properties map[string]interface{}) error {
+	t.configLock.RLock()
+	defer t.configLock.RUnlock()
+
 	event = t.telemetryShortName + "_" + event
 	if !t.config.EnabledTracking || t.client == nil {
 		t.debugf("Plugin telemetry event `%s` tracked, but not sent due to configuration", event)
