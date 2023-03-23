@@ -34,23 +34,23 @@
 //
 // 2. Start the telemetry client and tracker on plugin activate
 //
-//		func (p *Plugin) OnActivate() error {
-//		    p.telemetryClient, err = telemetry.NewRudderClient()
-//		    if err != nil {
-//		        p.API.LogWarn("telemetry client not started", "error", err.Error())
-//		    }
-//	        ...
-//	        p.tracker = telemetry.NewTracker(
-//	           p.telemetryClient,
-//	           p.API.GetDiagnosticId(),
-//	           p.API.GetServerVersion(),
-//	           Manifest.Id,
-//	           Manifest.Version,
-//	           "plugin_short_namame",
-//	           telemetry.NewTrackerConfig(p.API.GetConfig()),
-//	           logger.New(p.API)
-//	        )
+//	func (p *Plugin) OnActivate() error {
+//		p.telemetryClient, err = telemetry.NewRudderClient()
+//		if err != nil {
+//			p.API.LogWarn("telemetry client not started", "error", err.Error())
 //		}
+//		...
+//		p.tracker = telemetry.NewTracker(
+//			p.telemetryClient,
+//			p.API.GetDiagnosticId(),
+//			p.API.GetServerVersion(),
+//			Manifest.Id,
+//			Manifest.Version,
+//			"plugin_short_namame",
+//			telemetry.NewTrackerConfig(p.API.GetConfig()),
+//			logger.New(p.API)
+//		)
+//	}
 //
 // 3. Trigger tracker changes when configuration changes
 //
