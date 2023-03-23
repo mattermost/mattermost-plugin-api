@@ -1,9 +1,8 @@
 package telemetry
 
 import (
+	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
-
-	"github.com/mattermost/mattermost-server/v6/plugin"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 )
@@ -13,17 +12,19 @@ type TrackerConfig struct {
 	EnabledLogging  bool
 }
 
-// NewTrackerConfig returns a new trackerConfig from the current values from the plugin API.
-func NewTrackerConfig(api plugin.API) TrackerConfig {
+// NewTrackerConfig returns a new trackerConfig from the current values of the model.Config.
+func NewTrackerConfig(config *model.Config) TrackerConfig {
 	var enabledTracking, enabledLogging bool
-	if config := api.GetConfig(); config != nil {
-		if enableDiagnostics := config.LogSettings.EnableDiagnostics; enableDiagnostics != nil {
-			enabledTracking = *enableDiagnostics
-		}
+	if config == nil {
+		return TrackerConfig{}
+	}
 
-		if enableDeveloper := config.ServiceSettings.EnableDeveloper; enableDeveloper != nil {
-			enabledLogging = *enableDeveloper
-		}
+	if enableDiagnostics := config.LogSettings.EnableDiagnostics; enableDiagnostics != nil {
+		enabledTracking = *enableDiagnostics
+	}
+
+	if enableDeveloper := config.ServiceSettings.EnableDeveloper; enableDeveloper != nil {
+		enabledLogging = *enableDeveloper
 	}
 
 	return TrackerConfig{
@@ -64,8 +65,7 @@ type tracker struct {
 	pluginID           string
 	pluginVersion      string
 	telemetryShortName string
-	enabledTracking    bool
-	enabledLogging     bool
+	config             TrackerConfig
 	logger             logger.Logger
 }
 
@@ -99,14 +99,13 @@ func NewTracker(
 		serverVersion:      serverVersion,
 		pluginID:           pluginID,
 		pluginVersion:      pluginVersion,
-		enabledLogging:     config.EnabledLogging,
-		enabledTracking:    config.EnabledTracking,
 		logger:             l,
+		config:             config,
 	}
 }
 
 func (t *tracker) ReloadConfig(config TrackerConfig) {
-	if config.EnabledTracking != t.enabledTracking {
+	if config.EnabledTracking != t.config.EnabledTracking {
 		if config.EnabledTracking {
 			t.debugf("Enabling plugin telemetry")
 		} else {
@@ -114,12 +113,12 @@ func (t *tracker) ReloadConfig(config TrackerConfig) {
 		}
 	}
 
-	t.enabledTracking = config.EnabledTracking
-	t.enabledLogging = config.EnabledLogging
+	t.config.EnabledTracking = config.EnabledTracking
+	t.config.EnabledLogging = config.EnabledLogging
 }
 
 func (t *tracker) debugf(message string, args ...interface{}) {
-	if t.logger == nil || !t.enabledLogging {
+	if t.logger == nil || !t.config.EnabledLogging {
 		return
 	}
 	t.logger.Debugf(message, args...)
@@ -127,7 +126,7 @@ func (t *tracker) debugf(message string, args ...interface{}) {
 
 func (t *tracker) TrackEvent(event string, properties map[string]interface{}) error {
 	event = t.telemetryShortName + "_" + event
-	if !t.enabledTracking || t.client == nil {
+	if !t.config.EnabledTracking || t.client == nil {
 		t.debugf("Plugin telemetry event `%s` tracked, but not sent due to configuration", event)
 		return nil
 	}
