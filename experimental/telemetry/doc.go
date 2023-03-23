@@ -26,10 +26,10 @@
 // 1. Add the new fields to the plugin
 //
 //	type Plugin struct {
-//	    plugin.MattermostPlugin
-//	    ...
-//	    telemetryClient telemetry.Client
-//	    tracker         telemetry.Tracker
+//		plugin.MattermostPlugin
+//		...
+//		telemetryClient telemetry.Client
+//		tracker         telemetry.Tracker
 //	}
 //
 // 2. Start the telemetry client and tracker on plugin activate
@@ -55,22 +55,22 @@
 // 3. Trigger tracker changes when configuration changes
 //
 //	func (p *Plugin) OnConfigurationChange() error {
-//	   ...
-//	   if p.tracker != nil {
-//	     p.tracker.ReloadConfig(telemetry.NewTrackerConfig(p.API.GetConfig()))
-//	   }
-//	   return nil
+//		...
+//		if p.tracker != nil {
+//			p.tracker.ReloadConfig(telemetry.NewTrackerConfig(p.API.GetConfig()))
+//		}
+//		return nil
 //	}
 //
 // 4. Close the client on plugin deactivate
 //
 //	func (p *Plugin) OnDeactivate() error {
-//	   if p.telemetryClient != nil {
-//	      err := p.telemetryClient.Close()
-//	      if err != nil {
-//	         p.API.LogWarn("OnDeactivate: failed to close telemetryClient", "error", err.Error())
-//	      }
-//	   }
-//	   return nil
+//		if p.telemetryClient != nil {
+//			err := p.telemetryClient.Close()
+//			if err != nil {
+//				p.API.LogWarn("OnDeactivate: failed to close telemetryClient", "error", err.Error())
+//			}
+//		}
+//		return nil
 //	}
 package telemetry
