@@ -29,6 +29,10 @@ const (
 
 	// scheduleOnceJitter is the range of jitter to add to intervals to avoid contention issues
 	scheduleOnceJitter = 100 * time.Millisecond
+
+	// propsLimit is the maximum length in bytes of the json-representation of a job's props.
+	// It exists to prevent jon go rountines from consuming too much memory, as they are long running.
+	propsLimit = 10000
 )
 
 type JobOnceMetadata struct {
@@ -78,6 +82,15 @@ func newJobOnce(pluginAPI JobPluginAPI, key string, runAt time.Time, callback *s
 	mutex, err := NewMutex(pluginAPI, key)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create job mutex")
+	}
+
+	propsBytes, err := json.Marshal(props)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal props")
+	}
+
+	if len(propsBytes) > propsLimit {
+		return nil, errors.Errorf("props length extends limit")
 	}
 
 	return &JobOnce{

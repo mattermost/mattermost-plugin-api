@@ -637,35 +637,49 @@ func TestScheduleOnceSequential(t *testing.T) {
 }
 
 func TestScheduleOnceProps(t *testing.T) {
-	s := GetJobOnceScheduler(newMockPluginAPI(t))
+	t.Run("confirm props are returned", func(t *testing.T) {
+		s := GetJobOnceScheduler(newMockPluginAPI(t))
 
-	jobKey := model.NewId()
-	jobProps := struct {
-		Foo string
-	}{
-		Foo: "some foo",
-	}
+		jobKey := model.NewId()
+		jobProps := struct {
+			Foo string
+		}{
+			Foo: "some foo",
+		}
 
-	var mut sync.Mutex
-	var called bool
-	callback := func(key string, props any) {
-		require.Equal(t, jobKey, key)
-		require.Equal(t, jobProps, props)
-		mut.Lock()
-		defer mut.Unlock()
-		called = true
-	}
+		var mut sync.Mutex
+		var called bool
+		callback := func(key string, props any) {
+			require.Equal(t, jobKey, key)
+			require.Equal(t, jobProps, props)
+			mut.Lock()
+			defer mut.Unlock()
+			called = true
+		}
 
-	err := s.SetCallback(callback)
-	require.NoError(t, err)
-	if !s.started {
-		err = s.Start()
+		err := s.SetCallback(callback)
 		require.NoError(t, err)
-	}
+		if !s.started {
+			err = s.Start()
+			require.NoError(t, err)
+		}
 
-	_, err = s.ScheduleOnce(jobKey, time.Now().Add(100*time.Millisecond), jobProps)
-	require.NoError(t, err)
+		_, err = s.ScheduleOnce(jobKey, time.Now().Add(100*time.Millisecond), jobProps)
+		require.NoError(t, err)
 
-	// Check if callback was called
-	require.Eventually(t, func() bool { mut.Lock(); defer mut.Unlock(); return called }, time.Second, 50*time.Millisecond)
+		// Check if callback was called
+		require.Eventually(t, func() bool { mut.Lock(); defer mut.Unlock(); return called }, time.Second, 50*time.Millisecond)
+	})
+
+	t.Run("props to large", func(t *testing.T) {
+		s := GetJobOnceScheduler(newMockPluginAPI(t))
+
+		props := make([]byte, propsLimit)
+		for i := 0; i < propsLimit; i++ {
+			props[i] = 'a'
+		}
+
+		_, err := s.ScheduleOnce(model.NewId(), time.Now().Add(100*time.Millisecond), props)
+		require.Error(t, err)
+	})
 }
