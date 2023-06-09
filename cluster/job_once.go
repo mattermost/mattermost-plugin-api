@@ -31,7 +31,7 @@ const (
 	scheduleOnceJitter = 100 * time.Millisecond
 
 	// propsLimit is the maximum length in bytes of the json-representation of a job's props.
-	// It exists to prevent jon go rountines from consuming too much memory, as they are long running.
+	// It exists to prevent job go rountines from consuming too much memory, as they are long running.
 	propsLimit = 10000
 )
 
