@@ -1,3 +1,5 @@
+# This repository has been moved into a monorepo located in https://github.com/mattermost/mattermost. Please take a look a the [godoc](https://pkg.go.dev/github.com/mattermost/mattermost/server/public/pluginapi) for more information.
+
 # mattermost-plugin-api
 
 [![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/mattermost/mattermost-plugin-api)
